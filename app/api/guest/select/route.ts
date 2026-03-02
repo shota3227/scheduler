@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isTokenValid } from "@/lib/token";
-import { getAvailableSlots, createCalendarEvent } from "@/lib/graph";
+import { getAvailableSlots, createCalendarEvent, sendGraphMail } from "@/lib/graph";
 import { invalidateCache } from "@/lib/cache";
-import { sendConfirmedMail } from "@/lib/mail";
 import { ScheduleStatus } from "@prisma/client";
 import { startOfDay, addDays } from "date-fns";
 import { z } from "zod";
@@ -140,18 +139,25 @@ export async function POST(request: NextRequest) {
         // キャッシュを無効化
         await invalidateCache(result.schedule.id);
 
-        // 確定通知メールを作成者へ送信（非同期）
+        // 確定通知メールを作成者へGraph API経由で送信（SMTP不要）
         const datetimeStr = `${toJSTString(result.slotStart)}〜${new Date(result.slotEnd).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" })}`;
-        sendConfirmedMail(
+        const mailSubject = `【日程確定】${result.scheduleTitle}`;
+        const mailBody = [
+            `<p>${result.creator.name ?? result.creator.email} さん、</p>`,
+            `<p>以下の日程が確定しました。</p>`,
+            `<br>`,
+            `<p><strong>件名：</strong>${result.scheduleTitle}</p>`,
+            `<p><strong>日時：</strong>${datetimeStr}</p>`,
+            result.selection.message
+                ? `<p><strong>ゲストからのメッセージ：</strong>${result.selection.message}</p>`
+                : "",
+        ].join("");
+        sendGraphMail(
             result.creator.email,
-            {
-                title: result.schedule.title,
-                datetime: datetimeStr,
-                message: result.selection.message ?? "",
-                creator_name: result.creator.name ?? "",
-            },
-            result.schedule.id
-        ).catch(console.error);
+            result.creator.email,
+            mailSubject,
+            mailBody
+        ).catch((err) => console.error("Graph sendMail failed:", err));
 
         // Outlookカレンダーに予定を作成（非同期・エラー無視）
         const finalAttendees = [...result.participantEmails];

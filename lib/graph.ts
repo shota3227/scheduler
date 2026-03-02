@@ -275,3 +275,34 @@ export async function createCalendarEvent(
 
     return client.api(`/users/${organizerEmail}/calendar/events`).post(event);
 }
+
+/**
+ * Graph API経由でメールを送信（SMTP不要）
+ * @param fromEmail 送信者のメールアドレス（M365ユーザー）
+ * @param toEmail 宛先メールアドレス
+ * @param subject 件名
+ * @param htmlBody 本文（HTML）
+ */
+export async function sendGraphMail(
+    fromEmail: string,
+    toEmail: string,
+    subject: string,
+    htmlBody: string
+) {
+    const client = getGraphClient();
+
+    const message = {
+        subject,
+        body: {
+            contentType: "HTML",
+            content: htmlBody,
+        },
+        toRecipients: [
+            {
+                emailAddress: { address: toEmail },
+            },
+        ],
+    };
+
+    return client.api(`/users/${fromEmail}/sendMail`).post({ message });
+}
