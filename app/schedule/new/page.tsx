@@ -86,8 +86,11 @@ export default function NewSchedulePage() {
             if (slotStartMinutes < h * 60 + m) return false;
         }
 
-        // 終了時刻フィルタ（スロット終了時刻がフィルタ以内か）
-        const slotEndMinutes = end.getHours() * 60 + end.getMinutes();
+        let slotEndMinutes = end.getHours() * 60 + end.getMinutes();
+        if (slotEndMinutes === 0 || slotEndMinutes < slotStartMinutes) {
+            slotEndMinutes += 24 * 60; // 00:00 は 24:00 として扱う
+        }
+
         if (filterEndTime) {
             const [h, m] = filterEndTime.split(":").map(Number);
             if (slotEndMinutes > h * 60 + m) return false;
@@ -119,7 +122,11 @@ export default function NewSchedulePage() {
                     if (slotStartMinutes < h * 60 + m) return false;
                 }
 
-                const slotEndMinutes = end.getHours() * 60 + end.getMinutes();
+                let slotEndMinutes = end.getHours() * 60 + end.getMinutes();
+                if (slotEndMinutes === 0 || slotEndMinutes < slotStartMinutes) {
+                    slotEndMinutes += 24 * 60; // 00:00 は 24:00 として扱う
+                }
+
                 if (filterEndTime) {
                     const [h, m] = filterEndTime.split(":").map(Number);
                     if (slotEndMinutes > h * 60 + m) return false;
@@ -446,7 +453,7 @@ export default function NewSchedulePage() {
                                     <div className="flex items-center justify-between">
                                         <p className="text-sm text-gray-500">
                                             <span className="font-medium text-gray-900">{filteredSlots.length}</span> 件表示
-                                            　<span className="font-medium text-blue-600">{selectedSlots.length}</span> 件選択中
+                                            <span className="font-medium text-blue-600">{selectedSlots.length}</span> 件選択中
                                         </p>
                                         {filteredSlots.length > 0 && (
                                             <button
