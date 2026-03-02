@@ -96,26 +96,48 @@ function extractAvailableSlots(
     const slots: FreeBusySlot[] = [];
     const durationMs = durationMinutes * 60 * 1000;
 
-    // 平日9:00〜19:00の時間帯で候補を生成（30分刻み）
-    let current = new Date(startDate);
+    const dateFormatter = new Intl.DateTimeFormat('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+        year: 'numeric', month: '2-digit', day: '2-digit'
+    });
+    const weekdayFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Tokyo', weekday: 'short'
+    });
 
-    while (current < endDate) {
-        const dayOfWeek = current.getDay();
+    let daysToAdd = 0;
+    while (true) {
+        // startDateからN日後の日時 (24時間のミリ秒を加算)
+        const targetDate = new Date(startDate.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+        if (targetDate.getTime() > endDate.getTime()) break;
+
+        // JST基準の YYYY-MM-DD を生成
+        const parts = dateFormatter.formatToParts(targetDate);
+        const y = parts.find(p => p.type === 'year')?.value;
+        const m = parts.find(p => p.type === 'month')?.value;
+        const d = parts.find(p => p.type === 'day')?.value;
+        const dateStr = `${y}-${m}-${d}`;
 
         // 平日のみ（月〜金）
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
-            current = getNextDay(current);
+        const weekday = weekdayFormatter.format(targetDate);
+        if (weekday === "Sat" || weekday === "Sun") {
+            daysToAdd++;
             continue;
         }
 
-        // 7:00〜22:00の範囲（UIの絞り込みで最大対応する時間帯）
-        const dayStart = setTime(current, 7, 0);
-        const dayEnd = setTime(current, 22, 0);
+        // 7:00〜22:00の範囲 (JST固定で絶対時刻を取得)
+        const dayStartMs = new Date(`${dateStr}T07:00:00+09:00`).getTime();
+        const dayEndMs = new Date(`${dateStr}T22:00:00+09:00`).getTime();
 
-        let slotStart = new Date(Math.max(current.getTime(), dayStart.getTime()));
+        let slotStartMs = Math.max(startDate.getTime(), dayStartMs);
 
-        while (slotStart.getTime() + durationMs <= dayEnd.getTime()) {
-            const slotEnd = new Date(slotStart.getTime() + durationMs);
+        // 30分単位に切り上げ (例: 10:15 -> 10:30)
+        const remainder = slotStartMs % (30 * 60 * 1000);
+        if (remainder !== 0) {
+            slotStartMs += (30 * 60 * 1000) - remainder;
+        }
+
+        while (slotStartMs + durationMs <= dayEndMs) {
+            const slotEndMs = slotStartMs + durationMs;
 
             // 全参加者がこのスロットで空いているか確認
             const isAvailable = availability.every((user) =>
@@ -123,38 +145,25 @@ function extractAvailableSlots(
                     const busyStart = new Date(busy.start).getTime();
                     const busyEnd = new Date(busy.end).getTime();
                     // スロットとビジー時間が重複しないか確認
-                    return slotEnd.getTime() <= busyStart || slotStart.getTime() >= busyEnd;
+                    return slotEndMs <= busyStart || slotStartMs >= busyEnd;
                 })
             );
 
             if (isAvailable) {
                 slots.push({
-                    start: slotStart.toISOString(),
-                    end: slotEnd.toISOString(),
+                    start: new Date(slotStartMs).toISOString(),
+                    end: new Date(slotEndMs).toISOString(),
                 });
             }
 
             // 30分刻みで次のスロットへ
-            slotStart = new Date(slotStart.getTime() + 30 * 60 * 1000);
+            slotStartMs += 30 * 60 * 1000;
         }
 
-        current = getNextDay(dayStart);
+        daysToAdd++;
     }
 
     return slots;
-}
-
-function setTime(date: Date, hours: number, minutes: number): Date {
-    const d = new Date(date);
-    d.setHours(hours, minutes, 0, 0);
-    return d;
-}
-
-function getNextDay(date: Date): Date {
-    const d = new Date(date);
-    d.setDate(d.getDate() + 1);
-    d.setHours(0, 0, 0, 0);
-    return d;
 }
 
 /**
