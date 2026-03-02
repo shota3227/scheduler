@@ -1,0 +1,197 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum ScheduleStatus {
+  PENDING
+  CONFIRMED
+  EXPIRED
+  CANCELLED
+}
+
+// 社内ユーザー
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  role          Role      @default(USER)
+  msAadId       String?   @unique // Microsoft Azure AD Object ID
+  isActive      Boolean   @default(true) // 非活性化フラグ
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts          Account[]
+  sessions          Session[]
+  createdSchedules  ScheduleRequest[] @relation("CreatedBy")
+  participations    Participant[]
+
+  @@map("users")
+}
+
+// NextAuth.js Account
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+// NextAuth.js Session
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// NextAuth.js VerificationToken
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// 日程調整案件
+model ScheduleRequest {
+  id          String         @id @default(cuid())
+  title       String         // 打ち合わせ件名
+  duration    Int            // 打ち合わせ時間（分）
+  location    String?        // 場所（会議室名）
+  address     String?        // 場所（住所）
+  status      ScheduleStatus @default(PENDING)
+  creatorId   String
+  guestToken  String         @unique @default(cuid()) // 社外向けURL用トークン
+  expiresAt   DateTime       // URLの有効期限（72時間後）
+  emailBody   String?        @db.Text // 社外向けメール本文（カスタマイズ済み）
+  emailSentAt DateTime?      // メール送信日時
+
+  // 確定情報
+  confirmedAt      DateTime?
+  confirmedSlotId  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creator      User          @relation("CreatedBy", fields: [creatorId], references: [id])
+  participants Participant[]
+  timeSlots    TimeSlot[]
+  selection    GuestSelection?
+  caches       AvailabilityCache[]
+
+  @@map("schedule_requests")
+}
+
+// 参加者（社内メンバー）
+model Participant {
+  id         String  @id @default(cuid())
+  scheduleId String
+  userId     String
+  email      String  // Graph API参照用
+
+  schedule ScheduleRequest @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  user     User            @relation(fields: [userId], references: [id])
+
+  @@unique([scheduleId, userId])
+  @@map("participants")
+}
+
+// 候補日時
+model TimeSlot {
+  id         String   @id @default(cuid())
+  scheduleId String
+  startTime  DateTime
+  endTime    DateTime
+  isActive   Boolean  @default(true) // 削除された候補はfalse
+
+  schedule  ScheduleRequest @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  selection GuestSelection?
+
+  @@map("time_slots")
+}
+
+// 空き時間キャッシュ（5分TTL）
+model AvailabilityCache {
+  id         String   @id @default(cuid())
+  scheduleId String
+  data       Json     // Graph API レスポンス
+  cachedAt   DateTime @default(now())
+  expiresAt  DateTime // cachedAt + 5分
+
+  schedule ScheduleRequest @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@map("availability_caches")
+}
+
+// 社外ゲストの選択
+model GuestSelection {
+  id         String   @id @default(cuid())
+  scheduleId String   @unique
+  slotId     String   @unique
+  message    String?  @db.Text // 備考メッセージ
+  selectedAt DateTime @default(now())
+
+  schedule ScheduleRequest @relation(fields: [scheduleId], references: [id])
+  slot     TimeSlot        @relation(fields: [slotId], references: [id])
+
+  @@map("guest_selections")
+}
+
+// 通知ログ
+model Notification {
+  id         String   @id @default(cuid())
+  scheduleId String?
+  type       String   // CONFIRMED / EXPIRED_WARNING / NO_SLOTS / URL_SENT
+  recipient  String
+  sentAt     DateTime @default(now())
+  success    Boolean  @default(true)
+  error      String?
+
+  @@map("notifications")
+}
+
+// サイト設定（文言・ブランディング・メールテンプレート）
+model SiteConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String   @db.Text
+  label     String   // 管理画面表示用ラベル
+  category  String   // WORDING / BRANDING / EMAIL_TEMPLATE
+  updatedAt DateTime @updatedAt
+
+  @@map("site_configs")
+}
