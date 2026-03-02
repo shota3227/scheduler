@@ -76,6 +76,7 @@ export default function ScheduleEditPage() {
     // 参加者
     const [allMembers, setAllMembers] = useState<Member[]>([]);
     const [selectedParticipantIds, setSelectedParticipantIds] = useState<string[]>([]);
+    const [searchQuery, setSearchQuery] = useState("");
     const [savingParticipants, setSavingParticipants] = useState(false);
     const [savedParticipants, setSavedParticipants] = useState(false);
     const [participantsError, setParticipantsError] = useState("");
@@ -359,11 +360,10 @@ export default function ScheduleEditPage() {
                         <button
                             key={t}
                             onClick={() => setTab(t)}
-                            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-                                tab === t
-                                    ? "border-blue-600 text-blue-600"
-                                    : "border-transparent text-gray-500 hover:text-gray-700"
-                            }`}
+                            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${tab === t
+                                ? "border-blue-600 text-blue-600"
+                                : "border-transparent text-gray-500 hover:text-gray-700"
+                                }`}
                         >
                             {t === "basic" ? "基本情報" : t === "participants" ? "参加者" : "候補日時"}
                         </button>
@@ -450,32 +450,46 @@ export default function ScheduleEditPage() {
                                 メンバーが見つかりません
                             </p>
                         ) : (
-                            <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-96 overflow-y-auto">
-                                {allMembers.map((member) => {
-                                    const isSelected = selectedParticipantIds.includes(member.id);
-                                    return (
-                                        <label
-                                            key={member.id}
-                                            className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                                                isSelected ? "bg-blue-50" : "hover:bg-gray-50"
-                                            }`}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={isSelected}
-                                                onChange={() => toggleParticipant(member.id)}
-                                                className="w-4 h-4 text-blue-600 rounded"
-                                            />
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-gray-900">{member.name}</p>
-                                                <p className="text-xs text-gray-500 truncate">{member.email}</p>
-                                            </div>
-                                            {isSelected && (
-                                                <span className="text-xs text-blue-600 font-medium shrink-0">参加</span>
-                                            )}
-                                        </label>
-                                    );
-                                })}
+                            <div className="space-y-4">
+                                <input
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder="名前やメールアドレスで検索..."
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                                <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-96 overflow-y-auto">
+                                    {allMembers
+                                        .filter((m) =>
+                                            m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                            m.email.toLowerCase().includes(searchQuery.toLowerCase())
+                                        )
+                                        .sort((a, b) => a.name.localeCompare(b.name, "ja"))
+                                        .map((member) => {
+                                            const isSelected = selectedParticipantIds.includes(member.id);
+                                            return (
+                                                <label
+                                                    key={member.id}
+                                                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${isSelected ? "bg-blue-50" : "hover:bg-gray-50"
+                                                        }`}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isSelected}
+                                                        onChange={() => toggleParticipant(member.id)}
+                                                        className="w-4 h-4 text-blue-600 rounded"
+                                                    />
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className="text-sm font-medium text-gray-900">{member.name}</p>
+                                                        <p className="text-xs text-gray-500 truncate">{member.email}</p>
+                                                    </div>
+                                                    {isSelected && (
+                                                        <span className="text-xs text-blue-600 font-medium shrink-0">参加</span>
+                                                    )}
+                                                </label>
+                                            );
+                                        })}
+                                </div>
                             </div>
                         )}
 
@@ -489,8 +503,8 @@ export default function ScheduleEditPage() {
                             {savingParticipants
                                 ? "保存中..."
                                 : savedParticipants
-                                ? "✓ 保存しました"
-                                : `参加者を保存（${selectedParticipantIds.length}名）`}
+                                    ? "✓ 保存しました"
+                                    : `参加者を保存（${selectedParticipantIds.length}名）`}
                         </button>
                     </div>
                 )}
@@ -650,8 +664,8 @@ export default function ScheduleEditPage() {
                             {savingSlots
                                 ? "保存中..."
                                 : savedSlots
-                                ? "✓ 保存しました"
-                                : `候補日時を保存（${currentSlots.length + selectedNewSlots.length}件）`}
+                                    ? "✓ 保存しました"
+                                    : `候補日時を保存（${currentSlots.length + selectedNewSlots.length}件）`}
                         </button>
                     </div>
                 )}
