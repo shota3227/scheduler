@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import Link from "next/link";
 import { getStatusLabel, getStatusColor, formatDateTime } from "@/lib/utils";
 import { signOut } from "@/auth";
+import { CancelButton } from "./CancelButton";
 
 export default async function HistoryPage() {
     const session = await auth();
@@ -95,7 +96,14 @@ export default async function HistoryPage() {
                                         </td>
                                         <td className="px-4 py-4">
                                             {(s.status === "PENDING" || s.status === "CONFIRMED") && (
-                                                <CancelButton scheduleId={s.id} status={s.status} />
+                                                <CancelButton action={async () => {
+                                                    "use server";
+                                                    await prisma.scheduleRequest.update({
+                                                        where: { id: s.id },
+                                                        data: { status: "CANCELLED" },
+                                                    });
+                                                    redirect("/history");
+                                                }} />
                                             )}
                                         </td>
                                     </tr>
@@ -106,30 +114,5 @@ export default async function HistoryPage() {
                 )}
             </main>
         </div>
-    );
-}
-
-function CancelButton({ scheduleId, status }: { scheduleId: string; status: string }) {
-    const cancelAction = async () => {
-        "use server";
-        await prisma.scheduleRequest.update({
-            where: { id: scheduleId },
-            data: { status: "CANCELLED" },
-        });
-        redirect("/history");
-    };
-
-    return (
-        <form action={cancelAction}>
-            <button
-                type="submit"
-                className="text-xs text-red-600 hover:underline"
-                onClick={(e) => {
-                    if (!confirm("キャンセルしますか？")) e.preventDefault();
-                }}
-            >
-                キャンセル
-            </button>
-        </form>
     );
 }
