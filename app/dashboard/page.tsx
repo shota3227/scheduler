@@ -7,12 +7,17 @@ import { formatDateTime } from "@/lib/utils";
 import { signOut } from "@/auth";
 import CancelButton from "@/app/schedule/[id]/CancelButton";
 
-export default async function DashboardPage() {
+export default async function DashboardPage(
+    props: { searchParams: Promise<{ filter?: string }> }
+) {
     const session = await auth();
     if (!session?.user) redirect("/login");
 
     const user = session.user as any;
     const isAdmin = user.role === "ADMIN";
+
+    const searchParams = await props.searchParams;
+    const filter = searchParams?.filter || "all";
 
     const schedules = await prisma.scheduleRequest.findMany({
         where: isAdmin
@@ -31,6 +36,11 @@ export default async function DashboardPage() {
     const pendingCount = schedules.filter((s) => s.status === "PENDING").length;
     const confirmedCount = schedules.filter((s) => s.status === "CONFIRMED").length;
 
+    // フィルタリング処理
+    const displaySchedules = filter === "pending"
+        ? schedules.filter((s) => s.status === "PENDING")
+        : schedules;
+
     return (
         <div className="min-h-screen bg-gray-50">
             {/* ナビゲーション */}
@@ -43,14 +53,14 @@ export default async function DashboardPage() {
                             </svg>
                         </div>
                         <span className="font-bold text-gray-900">日程調整システム</span>
+                        <span className="text-sm text-gray-500 border-l border-gray-300 pl-3 ml-1">{user.name || user.email}</span>
                     </div>
                     <div className="flex items-center gap-4">
                         <Link href="/dashboard" className="text-sm text-blue-600 font-medium">ダッシュボード</Link>
                         <Link href="/history" className="text-sm text-gray-600 hover:text-gray-900">履歴</Link>
                         {isAdmin && <Link href="/admin" className="text-sm text-gray-600 hover:text-gray-900">管理者設定</Link>}
-                        <span className="text-sm text-gray-500">{user.name || user.email}</span>
                         <form action={async () => { "use server"; await signOut({ redirectTo: "/login" }); }}>
-                            <button type="submit" className="text-sm text-gray-500 hover:text-gray-700">ログアウト</button>
+                            <button type="submit" className="text-sm text-gray-500 hover:text-gray-700 cursor-pointer">ログアウト</button>
                         </form>
                     </div>
                 </div>
@@ -73,9 +83,15 @@ export default async function DashboardPage() {
                     </div>
                 </div>
 
-                {/* 新規作成ボタン */}
+                {/* 新規作成ボタンと絞り込み */}
                 <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-lg font-bold text-gray-900">最近の調整</h2>
+                    <div className="flex items-center gap-4">
+                        <h2 className="text-lg font-bold text-gray-900">最近の調整</h2>
+                        <div className="flex bg-gray-100 rounded-lg p-1">
+                            <Link href="/dashboard" className={`px-3 py-1.5 text-sm rounded-md transition-colors ${filter !== 'pending' ? 'bg-white shadow-sm font-medium text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>すべて</Link>
+                            <Link href="/dashboard?filter=pending" className={`px-3 py-1.5 text-sm rounded-md transition-colors ${filter === 'pending' ? 'bg-white shadow-sm font-medium text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>調整中のみ</Link>
+                        </div>
+                    </div>
                     <Link
                         href="/schedule/new"
                         id="create-schedule-btn"
@@ -89,16 +105,22 @@ export default async function DashboardPage() {
                 </div>
 
                 {/* 調整一覧 */}
-                {schedules.length === 0 ? (
+                {displaySchedules.length === 0 ? (
                     <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-                        <p className="text-gray-500">日程調整がありません</p>
-                        <Link href="/schedule/new" className="mt-3 inline-block text-blue-600 text-sm hover:underline">
-                            最初の日程調整を作成する →
-                        </Link>
+                        <p className="text-gray-500">条件に一致する日程調整がありません</p>
+                        {filter === "pending" ? (
+                            <Link href="/dashboard" className="mt-3 inline-block text-blue-600 text-sm hover:underline">
+                                すべての調整を表示する →
+                            </Link>
+                        ) : (
+                            <Link href="/schedule/new" className="mt-3 inline-block text-blue-600 text-sm hover:underline">
+                                最初の日程調整を作成する →
+                            </Link>
+                        )}
                     </div>
                 ) : (
                     <div className="space-y-3">
-                        {schedules.map((schedule) => {
+                        {displaySchedules.map((schedule) => {
                             const canManage = isAdmin || schedule.creatorId === user.id;
                             const cancelAction = async () => {
                                 "use server";
@@ -144,13 +166,15 @@ export default async function DashboardPage() {
                                     {/* アクションバー */}
                                     {canManage && (
                                         <div className="border-t border-gray-100 px-5 py-2 flex items-center justify-end gap-4 bg-gray-50">
-                                            <Link
-                                                href={`/schedule/${schedule.id}/edit`}
-                                                className="text-xs text-blue-600 hover:underline font-medium"
-                                            >
-                                                編集
-                                            </Link>
-                                            {(schedule.status === "PENDING" || schedule.status === "CONFIRMED") && (
+                                            {schedule.status === "PENDING" && (
+                                                <Link
+                                                    href={`/schedule/${schedule.id}/edit`}
+                                                    className="text-xs text-blue-600 hover:underline font-medium"
+                                                >
+                                                    編集
+                                                </Link>
+                                            )}
+                                            {schedule.status === "PENDING" && (
                                                 <CancelButton action={cancelAction} />
                                             )}
                                         </div>

@@ -5,7 +5,7 @@ export function CancelButton({ action }: { action: () => void }) {
         <form action={action}>
             <button
                 type="submit"
-                className="text-xs text-red-600 hover:underline"
+                className="text-xs text-red-600 hover:underline cursor-pointer"
                 onClick={(e) => {
                     if (!confirm("キャンセルしますか？")) e.preventDefault();
                 }}

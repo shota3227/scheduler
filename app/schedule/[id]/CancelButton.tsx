@@ -12,7 +12,7 @@ export default function CancelButton({ action, label = "調整をキャンセル
         <form action={action}>
             <button
                 type="submit"
-                className={`${textClass} text-red-500 hover:underline`}
+                className={`${textClass} text-red-500 hover:underline cursor-pointer`}
                 onClick={(e) => {
                     if (!confirm("この調整をキャンセルしますか？")) e.preventDefault();
                 }}
