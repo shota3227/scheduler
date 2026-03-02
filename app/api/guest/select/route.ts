@@ -154,9 +154,14 @@ export async function POST(request: NextRequest) {
         ).catch(console.error);
 
         // Outlookカレンダーに予定を作成（非同期・エラー無視）
+        const finalAttendees = [...result.participantEmails];
+        if (!finalAttendees.includes(result.creator.email)) {
+            finalAttendees.push(result.creator.email);
+        }
+
         createCalendarEvent(
             result.creator.email,
-            result.participantEmails,
+            finalAttendees,
             result.scheduleTitle,
             toGraphJSTDateTime(result.slotStart),
             toGraphJSTDateTime(result.slotEnd),
