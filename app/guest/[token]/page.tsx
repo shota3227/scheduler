@@ -173,6 +173,29 @@ export default function GuestPage() {
                         </svg>
                     </div>
                     <h2 className="text-xl font-bold text-gray-900 mb-2">日程が確定しました</h2>
+
+                    {selected && (
+                        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 my-6 text-left inline-block w-full">
+                            <p className="text-sm font-medium text-blue-900 mb-2 text-center">以下の日時で確定いたしました</p>
+                            <div className="flex items-center justify-center gap-2 text-blue-800 font-bold text-lg">
+                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                {new Date(selected.start).toLocaleDateString("ja-JP", {
+                                    year: "numeric", month: "short", day: "numeric", weekday: "short"
+                                })}
+                                {" "}
+                                {new Date(selected.start).toLocaleTimeString("ja-JP", {
+                                    hour: "2-digit", minute: "2-digit"
+                                })}
+                                -
+                                {new Date(selected.end).toLocaleTimeString("ja-JP", {
+                                    hour: "2-digit", minute: "2-digit"
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                     <p className="text-gray-600 text-sm leading-relaxed">
                         {completionMsg || config?.completionMessage || "日程のご確認ありがとうございます。担当者より改めてご連絡いたします。"}
                     </p>
@@ -235,8 +258,8 @@ export default function GuestPage() {
                                             }, 50);
                                         }}
                                         className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all ${isSelected
-                                                ? "border-blue-500 bg-blue-50 text-blue-900"
-                                                : "border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-900"
+                                            ? "border-blue-500 bg-blue-50 text-blue-900"
+                                            : "border-gray-200 hover:border-blue-300 hover:bg-blue-50 text-gray-900"
                                             }`}
                                     >
                                         <span className="font-medium">

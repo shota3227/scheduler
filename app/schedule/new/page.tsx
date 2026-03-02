@@ -34,6 +34,7 @@ export default function NewSchedulePage() {
     const [step, setStep] = useState(1); // 1:基本情報 2:参加者 3:候補日時 4:URL発行
     const [members, setMembers] = useState<Member[]>([]);
     const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
+    const [searchQuery, setSearchQuery] = useState("");
     const [title, setTitle] = useState("");
     const [duration, setDuration] = useState(60);
     const [location, setLocation] = useState("");
@@ -353,21 +354,39 @@ export default function NewSchedulePage() {
                         <div className="space-y-5">
                             <h2 className="text-lg font-bold text-gray-900">参加者の選択</h2>
                             <p className="text-sm text-gray-500">打ち合わせに参加する社内メンバーをすべて選択してください。</p>
+
+                            {/* 検索ボックス */}
+                            <div>
+                                <input
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    placeholder="名前やメールアドレスで検索..."
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+
                             <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-96 overflow-y-auto">
-                                {members.map((member) => (
-                                    <label key={member.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedMembers.includes(member.id)}
-                                            onChange={() => toggleMember(member.id)}
-                                            className="w-4 h-4 text-blue-600 rounded"
-                                        />
-                                        <div>
-                                            <p className="text-sm font-medium text-gray-900">{member.name}</p>
-                                            <p className="text-xs text-gray-500">{member.email}</p>
-                                        </div>
-                                    </label>
-                                ))}
+                                {members
+                                    .filter((m) =>
+                                        m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                                        m.email.toLowerCase().includes(searchQuery.toLowerCase())
+                                    )
+                                    .sort((a, b) => a.name.localeCompare(b.name, "ja"))
+                                    .map((member) => (
+                                        <label key={member.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 cursor-pointer">
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedMembers.includes(member.id)}
+                                                onChange={() => toggleMember(member.id)}
+                                                className="w-4 h-4 text-blue-600 rounded"
+                                            />
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-900">{member.name}</p>
+                                                <p className="text-xs text-gray-500">{member.email}</p>
+                                            </div>
+                                        </label>
+                                    ))}
                             </div>
                             <div className="text-sm text-gray-600">
                                 {selectedMembers.length}名選択中
