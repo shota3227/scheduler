@@ -55,14 +55,35 @@ function ImageDropzone({ value, dbKey, onChange, label, description }: ImageDrop
     };
 
     const readFile = (file: File) => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const result = event.target?.result;
-            if (typeof result === "string") {
-                saveImage(result);
+        const isPng = file.type === "image/png";
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            let w = img.naturalWidth;
+            let h = img.naturalHeight;
+            // 最大1200pxにリサイズ（OGP等の大きい画像を圧縮）
+            const maxDim = 1200;
+            if (w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+            if (h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+            const canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) { setSaveError("圧縮処理に失敗しました"); return; }
+            // PNG以外（JPEG等）は白背景を敷いてJPEGに変換
+            if (!isPng) {
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(0, 0, w, h);
             }
+            ctx.drawImage(img, 0, 0, w, h);
+            const mimeType = isPng ? "image/png" : "image/jpeg";
+            const quality = isPng ? 1.0 : 0.75;
+            const compressed = canvas.toDataURL(mimeType, quality);
+            saveImage(compressed);
         };
-        reader.readAsDataURL(file);
+        img.onerror = () => setSaveError("ファイルの読み込みに失敗しました");
+        img.src = url;
     };
 
     const handleDrop = useCallback(
