@@ -3,9 +3,9 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET(
     request: NextRequest,
-    { params }: { params: { key: string } }
+    { params }: { params: Promise<{ key: string }> }
 ) {
-    const key = params.key;
+    const { key } = await params;
 
     try {
         const config = await prisma.siteConfig.findUnique({
