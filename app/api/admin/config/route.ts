@@ -29,12 +29,22 @@ export async function PATCH(request: NextRequest) {
     const updates = Array.isArray(body) ? body : [body];
 
     const results = await Promise.all(
-        updates.map(({ key, value }: { key: string; value: string }) =>
-            prisma.siteConfig.update({
+        updates.map(({ key, value }: { key: string; value: string }) => {
+            // valueだけ更新、存在しない場合は空の補足情報で作成
+            const categoryMatch = key.split("_")[0];
+            const category = categoryMatch ? categoryMatch.toUpperCase() : "OTHER";
+
+            return prisma.siteConfig.upsert({
                 where: { key },
-                data: { value },
-            })
-        )
+                update: { value },
+                create: {
+                    key,
+                    value,
+                    label: key, // 管理画面からはラベルは不要/不可視で良いためそのまま
+                    category,
+                },
+            });
+        })
     );
 
     return NextResponse.json(results);

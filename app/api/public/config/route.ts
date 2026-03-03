@@ -15,6 +15,7 @@ export async function GET() {
                     "wording_completion_message",
                     "branding_company_name",
                     "branding_logo_url",
+                    "branding_logo_data",
                 ],
             },
         },
@@ -23,6 +24,9 @@ export async function GET() {
     const find = (key: string): string =>
         configs.find((c: SiteConfig) => c.key === key)?.value ?? "";
 
+    const logoData = find("branding_logo_data");
+    const logoUrl = find("branding_logo_url");
+
     const mapped = {
         heading: find("wording_guest_heading"),
         description: find("wording_guest_description"),
@@ -30,7 +34,7 @@ export async function GET() {
         conflictMessage: find("wording_conflict_message"),
         completionMessage: find("wording_completion_message"),
         companyName: find("branding_company_name"),
-        logoUrl: find("branding_logo_url"),
+        logoUrl: logoData ? "/api/images/branding_logo_data" : logoUrl,
     };
 
     return NextResponse.json(mapped);

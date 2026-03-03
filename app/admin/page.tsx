@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 
 interface Config {
     id: string;
@@ -16,6 +16,102 @@ interface Member {
     email: string;
     role: string;
     isActive: boolean;
+}
+
+interface ImageDropzoneProps {
+    value?: string;
+    onChange: (base64: string) => void;
+    label: string;
+    description?: string;
+}
+
+function ImageDropzone({ value, onChange, label, description }: ImageDropzoneProps) {
+    const [isDragging, setIsDragging] = useState(false);
+
+    const handleDrop = useCallback(
+        (e: React.DragEvent<HTMLDivElement>) => {
+            e.preventDefault();
+            setIsDragging(false);
+            if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+                const file = e.dataTransfer.files[0];
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const result = event.target?.result;
+                    if (typeof result === "string") {
+                        onChange(result); // Base64 string
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        },
+        [onChange]
+    );
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault();
+        setIsDragging(true);
+    };
+
+    const handleDragLeave = () => {
+        setIsDragging(false);
+    };
+
+    return (
+        <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">{label}</label>
+            {description && <p className="text-xs text-gray-500">{description}</p>}
+            <div
+                className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors ${isDragging ? "border-blue-500 bg-blue-50" : "border-gray-300 bg-gray-50 hover:bg-gray-100"
+                    }`}
+                onDrop={handleDrop}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onClick={() => document.getElementById(`file-upload-${label}`)?.click()}
+            >
+                <input
+                    id={`file-upload-${label}`}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                        if (e.target.files && e.target.files[0]) {
+                            const file = e.target.files[0];
+                            const reader = new FileReader();
+                            reader.onload = (event) => {
+                                const result = event.target?.result;
+                                if (typeof result === "string") {
+                                    onChange(result);
+                                }
+                            };
+                            reader.readAsDataURL(file);
+                        }
+                    }}
+                />
+
+                {value ? (
+                    <div className="relative w-full flex justify-center">
+                        <img src={value.startsWith("http") ? value : (value.startsWith("data:") ? value : `/api/images/${value}`)} alt={label} className="max-h-32 object-contain rounded" />
+                        <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onChange(""); }}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 shadow"
+                        >
+                            ×
+                        </button>
+                    </div>
+                ) : (
+                    <div className="text-center text-gray-500">
+                        <svg className="mx-auto h-8 w-8 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        <span className="mt-2 block text-sm font-medium text-gray-900">
+                            クリックまたはドラッグ＆ドロップで画像を配置
+                        </span>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 }
 
 export default function AdminPage() {
@@ -169,36 +265,42 @@ export default function AdminPage() {
 
                 {/* ブランディング */}
                 {activeTab === "branding" && (
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                         <h2 className="font-bold text-gray-900 mb-2">ブランディング設定</h2>
-                        {brandingConfigs.map((config) => (
-                            <div key={config.key} className="bg-white rounded-xl border border-gray-200 p-5">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">{config.label}</label>
-                                {config.key === "branding_logo_url" ? (
-                                    <div className="space-y-2">
-                                        <input
-                                            id={`config-${config.key}`}
-                                            type="url"
-                                            value={editValues[config.key] ?? ""}
-                                            onChange={(e) => setEditValues((prev) => ({ ...prev, [config.key]: e.target.value }))}
-                                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                            placeholder="https://example.com/logo.png"
-                                        />
-                                        {editValues[config.key] && (
-                                            <img src={editValues[config.key]} alt="プレビュー" className="h-12 object-contain border border-gray-200 rounded p-1" />
-                                        )}
-                                    </div>
-                                ) : (
-                                    <input
-                                        id={`config-${config.key}`}
-                                        type="text"
-                                        value={editValues[config.key] ?? ""}
-                                        onChange={(e) => setEditValues((prev) => ({ ...prev, [config.key]: e.target.value }))}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                )}
+
+                        <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">社名</label>
+                                <input
+                                    type="text"
+                                    value={editValues["branding_company_name"] ?? ""}
+                                    onChange={(e) => setEditValues((prev) => ({ ...prev, ["branding_company_name"]: e.target.value }))}
+                                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
                             </div>
-                        ))}
+
+                            <ImageDropzone
+                                label="ロゴ画像"
+                                description="ヘッダーや各種画面に表示される企業ロゴです。背景透過のPNG形式を推奨します。"
+                                value={editValues["branding_logo_data"] ?? editValues["branding_logo_url"] ?? ""}
+                                onChange={(val) => setEditValues((prev) => ({ ...prev, ["branding_logo_data"]: val }))}
+                            />
+
+                            <ImageDropzone
+                                label="ファビコン (favicon)"
+                                description="ブラウザのタブに表示される小さなアイコンです。正方形のPNGまたはICO形式を推奨します。"
+                                value={editValues["branding_favicon_data"] ?? ""}
+                                onChange={(val) => setEditValues((prev) => ({ ...prev, ["branding_favicon_data"]: val }))}
+                            />
+
+                            <ImageDropzone
+                                label="OGP画像"
+                                description="SNSやチャットツール（Slack等）でURLを共有した際にプレビューとして表示される画像です。（推奨サイズ: 1200 x 630）"
+                                value={editValues["branding_ogp_data"] ?? ""}
+                                onChange={(val) => setEditValues((prev) => ({ ...prev, ["branding_ogp_data"]: val }))}
+                            />
+                        </div>
+
                         <button
                             id="save-branding-btn"
                             onClick={handleSave}
