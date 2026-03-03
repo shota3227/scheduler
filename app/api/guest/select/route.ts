@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isTokenValid } from "@/lib/token";
-import { getAvailableSlots, createCalendarEvent, sendGraphMail } from "@/lib/graph";
+import { getAvailableSlots, createCalendarEvent } from "@/lib/graph";
+import { sendConfirmedMail } from "@/lib/mail";
 import { invalidateCache } from "@/lib/cache";
 import { ScheduleStatus } from "@prisma/client";
 import { startOfDay, addDays } from "date-fns";
@@ -139,25 +140,18 @@ export async function POST(request: NextRequest) {
         // キャッシュを無効化
         await invalidateCache(result.schedule.id);
 
-        // 確定通知メールを作成者へGraph API経由で送信（SMTP不要）
+        // 確定通知メールをURL発行者（作成者）へSMTP経由で送信
         const datetimeStr = `${toJSTString(result.slotStart)}〜${new Date(result.slotEnd).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" })}`;
-        const mailSubject = `【日程確定】${result.scheduleTitle}`;
-        const mailBody = [
-            `<p>${result.creator.name ?? result.creator.email} さん、</p>`,
-            `<p>以下の日程が確定しました。</p>`,
-            `<br>`,
-            `<p><strong>件名：</strong>${result.scheduleTitle}</p>`,
-            `<p><strong>日時：</strong>${datetimeStr}</p>`,
-            result.selection.message
-                ? `<p><strong>ゲストからのメッセージ：</strong>${result.selection.message}</p>`
-                : "",
-        ].join("");
-        sendGraphMail(
+        sendConfirmedMail(
             result.creator.email,
-            result.creator.email,
-            mailSubject,
-            mailBody
-        ).catch((err) => console.error("Graph sendMail failed:", err));
+            {
+                creator_name: result.creator.name ?? result.creator.email,
+                title: result.scheduleTitle,
+                datetime: datetimeStr,
+                message: result.selection.message ?? "",
+            },
+            result.schedule.id
+        ).catch((err) => console.error("sendConfirmedMail failed:", err));
 
         // Outlookカレンダーに予定を作成（非同期・エラー無視）
         const finalAttendees = [...result.participantEmails];
