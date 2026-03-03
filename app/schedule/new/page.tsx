@@ -58,7 +58,8 @@ export default function NewSchedulePage() {
     const [filterStartTime, setFilterStartTime] = useState("09:00");
     const [filterEndTime, setFilterEndTime] = useState("18:00");
 
-    const { data: session } = useSession();
+    const sessionContext = useSession();
+    const session = sessionContext?.data;
 
     useEffect(() => {
         fetch("/api/admin/members")
