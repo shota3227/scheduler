@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 
 interface Member {
     id: string;
@@ -58,25 +57,31 @@ export default function NewSchedulePage() {
     const [filterStartTime, setFilterStartTime] = useState("09:00");
     const [filterEndTime, setFilterEndTime] = useState("18:00");
 
-    const sessionContext = useSession();
-    const session = sessionContext?.data;
+    const [myEmail, setMyEmail] = useState<string | null>(null);
 
     useEffect(() => {
         fetch("/api/admin/members")
             .then((r) => r.json())
             .then((data: any[]) => setMembers(data.filter((m: any) => m.isActive)));
+
+        fetch("/api/auth/session")
+            .then((r) => r.json())
+            .then((data) => {
+                if (data?.user?.email) {
+                    setMyEmail(data.user.email.toLowerCase());
+                }
+            });
     }, []);
 
-    // メンバーリストまたはセッションがロードされたら、自分自身を初期選択する
+    // メンバーリストまたは自分のEmailがロードされたら、自分自身を初期選択する
     useEffect(() => {
-        if (session?.user?.email && members.length > 0 && selectedMembers.length === 0) {
-            const myEmail = session.user.email.toLowerCase();
+        if (myEmail && members.length > 0 && selectedMembers.length === 0) {
             const me = members.find(m => m.email.toLowerCase() === myEmail);
             if (me) {
                 setSelectedMembers([me.id]);
             }
         }
-    }, [session?.user?.email, members, selectedMembers.length]);
+    }, [myEmail, members, selectedMembers.length]);
 
     // フィルタ適用後のスロット
     const filteredSlots = availableSlots.filter((slot) => {
