@@ -20,31 +20,60 @@ interface Member {
 
 interface ImageDropzoneProps {
     value?: string;
+    dbKey: string;
     onChange: (base64: string) => void;
     label: string;
     description?: string;
 }
 
-function ImageDropzone({ value, onChange, label, description }: ImageDropzoneProps) {
+function ImageDropzone({ value, dbKey, onChange, label, description }: ImageDropzoneProps) {
     const [isDragging, setIsDragging] = useState(false);
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [saveError, setSaveError] = useState("");
+
+    const saveImage = async (base64: string) => {
+        setSaving(true);
+        setSaved(false);
+        setSaveError("");
+        try {
+            const res = await fetch("/api/admin/config", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify([{ key: dbKey, value: base64 }]),
+            });
+            if (!res.ok) throw new Error(await res.text());
+            onChange(base64);
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (e) {
+            setSaveError("保存に失敗しました");
+            console.error(e);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const readFile = (file: File) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const result = event.target?.result;
+            if (typeof result === "string") {
+                saveImage(result);
+            }
+        };
+        reader.readAsDataURL(file);
+    };
 
     const handleDrop = useCallback(
         (e: React.DragEvent<HTMLDivElement>) => {
             e.preventDefault();
             setIsDragging(false);
             if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                const file = e.dataTransfer.files[0];
-                const reader = new FileReader();
-                reader.onload = (event) => {
-                    const result = event.target?.result;
-                    if (typeof result === "string") {
-                        onChange(result); // Base64 string
-                    }
-                };
-                reader.readAsDataURL(file);
+                readFile(e.dataTransfer.files[0]);
             }
         },
-        [onChange]
+        [dbKey]
     );
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
@@ -52,52 +81,66 @@ function ImageDropzone({ value, onChange, label, description }: ImageDropzonePro
         setIsDragging(true);
     };
 
-    const handleDragLeave = () => {
-        setIsDragging(false);
+    const handleDragLeave = () => setIsDragging(false);
+
+    const clearImage = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        await saveImage("");
     };
 
     return (
         <div className="space-y-2">
-            <label className="block text-sm font-medium text-gray-700">{label}</label>
+            <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-gray-700">{label}</label>
+                {saving && <span className="text-xs text-blue-600">保存中...</span>}
+                {saved && <span className="text-xs text-green-600 font-medium">✓ 保存しました</span>}
+                {saveError && <span className="text-xs text-red-600">{saveError}</span>}
+            </div>
             {description && <p className="text-xs text-gray-500">{description}</p>}
             <div
-                className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors ${isDragging ? "border-blue-500 bg-blue-50" : "border-gray-300 bg-gray-50 hover:bg-gray-100"
+                className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center cursor-pointer transition-colors ${isDragging ? "border-blue-500 bg-blue-50" : saving ? "border-blue-300 bg-blue-50" : "border-gray-300 bg-gray-50 hover:bg-gray-100"
                     }`}
                 onDrop={handleDrop}
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
-                onClick={() => document.getElementById(`file-upload-${label}`)?.click()}
+                onClick={() => !saving && document.getElementById(`file-upload-${dbKey}`)?.click()}
             >
                 <input
-                    id={`file-upload-${label}`}
+                    id={`file-upload-${dbKey}`}
                     type="file"
                     accept="image/*"
                     className="hidden"
                     onChange={(e) => {
                         if (e.target.files && e.target.files[0]) {
-                            const file = e.target.files[0];
-                            const reader = new FileReader();
-                            reader.onload = (event) => {
-                                const result = event.target?.result;
-                                if (typeof result === "string") {
-                                    onChange(result);
-                                }
-                            };
-                            reader.readAsDataURL(file);
+                            readFile(e.target.files[0]);
                         }
                     }}
                 />
 
                 {value ? (
                     <div className="relative w-full flex justify-center">
-                        <img src={value.startsWith("http") ? value : (value.startsWith("data:") ? value : `/api/images/${value}`)} alt={label} className="max-h-32 object-contain rounded" />
-                        <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); onChange(""); }}
-                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 shadow"
-                        >
-                            ×
-                        </button>
+                        <img
+                            src={value.startsWith("data:") ? value : `/api/images/${dbKey}`}
+                            alt={label}
+                            className="max-h-32 object-contain rounded"
+                        />
+                        {!saving && (
+                            <button
+                                type="button"
+                                onClick={clearImage}
+                                className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 shadow"
+                            >
+                                ×
+                            </button>
+                        )}
+                    </div>
+                ) : saving ? (
+                    <div className="text-center text-blue-500">
+                        <svg className="animate-spin mx-auto h-8 w-8 mb-2" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        <span className="text-sm font-medium">アップロード中...</span>
                     </div>
                 ) : (
                     <div className="text-center text-gray-500">
@@ -138,12 +181,16 @@ export default function AdminPage() {
         setSaving(true);
         setError("");
         try {
-            const updates = Object.entries(editValues).map(([key, value]) => ({ key, value }));
-            await fetch("/api/admin/config", {
+            // 画像Base64データは個別保存のため除外し、文字列設定のみ一括保存する
+            const updates = Object.entries(editValues)
+                .filter(([, value]) => !value.startsWith("data:"))
+                .map(([key, value]) => ({ key, value }));
+            const res = await fetch("/api/admin/config", {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(updates),
             });
+            if (!res.ok) throw new Error(await res.text());
             setSaved(true);
             setTimeout(() => setSaved(false), 2000);
         } catch {
@@ -281,6 +328,7 @@ export default function AdminPage() {
 
                             <ImageDropzone
                                 label="ロゴ画像"
+                                dbKey="branding_logo_data"
                                 description="ヘッダーや各種画面に表示される企業ロゴです。背景透過のPNG形式を推奨します。"
                                 value={editValues["branding_logo_data"] ?? editValues["branding_logo_url"] ?? ""}
                                 onChange={(val) => setEditValues((prev) => ({ ...prev, ["branding_logo_data"]: val }))}
@@ -288,6 +336,7 @@ export default function AdminPage() {
 
                             <ImageDropzone
                                 label="ファビコン (favicon)"
+                                dbKey="branding_favicon_data"
                                 description="ブラウザのタブに表示される小さなアイコンです。正方形のPNGまたはICO形式を推奨します。"
                                 value={editValues["branding_favicon_data"] ?? ""}
                                 onChange={(val) => setEditValues((prev) => ({ ...prev, ["branding_favicon_data"]: val }))}
@@ -295,6 +344,7 @@ export default function AdminPage() {
 
                             <ImageDropzone
                                 label="OGP画像"
+                                dbKey="branding_ogp_data"
                                 description="SNSやチャットツール（Slack等）でURLを共有した際にプレビューとして表示される画像です。（推奨サイズ: 1200 x 630）"
                                 value={editValues["branding_ogp_data"] ?? ""}
                                 onChange={(val) => setEditValues((prev) => ({ ...prev, ["branding_ogp_data"]: val }))}
