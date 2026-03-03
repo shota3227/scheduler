@@ -70,12 +70,13 @@ export default function NewSchedulePage() {
     // メンバーリストまたはセッションがロードされたら、自分自身を初期選択する
     useEffect(() => {
         if (session?.user?.email && members.length > 0 && selectedMembers.length === 0) {
-            const me = members.find(m => m.email === session?.user?.email);
+            const myEmail = session.user.email.toLowerCase();
+            const me = members.find(m => m.email.toLowerCase() === myEmail);
             if (me) {
                 setSelectedMembers([me.id]);
             }
         }
-    }, [session?.user?.email, members]);
+    }, [session?.user?.email, members, selectedMembers.length]);
 
     // フィルタ適用後のスロット
     const filteredSlots = availableSlots.filter((slot) => {
