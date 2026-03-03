@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 interface Member {
     id: string;
@@ -57,11 +58,23 @@ export default function NewSchedulePage() {
     const [filterStartTime, setFilterStartTime] = useState("09:00");
     const [filterEndTime, setFilterEndTime] = useState("18:00");
 
+    const { data: session } = useSession();
+
     useEffect(() => {
         fetch("/api/admin/members")
             .then((r) => r.json())
-            .then((data: any[]) => setMembers(data.filter(m => m.isActive)));
+            .then((data: any[]) => setMembers(data.filter((m: any) => m.isActive)));
     }, []);
+
+    // メンバーリストまたはセッションがロードされたら、自分自身を初期選択する
+    useEffect(() => {
+        if (session?.user?.email && members.length > 0 && selectedMembers.length === 0) {
+            const me = members.find(m => m.email === session?.user?.email);
+            if (me) {
+                setSelectedMembers([me.id]);
+            }
+        }
+    }, [session?.user?.email, members]);
 
     // フィルタ適用後のスロット
     const filteredSlots = availableSlots.filter((slot) => {

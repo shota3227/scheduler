@@ -95,7 +95,58 @@ export async function sendConfirmedMail(
 }
 
 /**
+ * URL作成者へ「確定」または「再調整」のシステムアラートメールを送る（リンク付き）
+ */
+export async function sendCreatorAlertMail(
+    to: string,
+    type: "CONFIRMED" | "RESCHEDULE",
+    scheduleId: string,
+    scheduleTitle: string,
+    message: string = ""
+) {
+    const from = getSystemMailAddress();
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const detailUrl = `${appUrl}/schedule/${scheduleId}`;
+
+    let subject = "";
+    let html = "";
+
+    if (type === "CONFIRMED") {
+        subject = `【システム通知】クライアントが日程を確定させました（${scheduleTitle}）`;
+        html = `
+            <p>ゲストが日程を確定し、カレンダーへの予定登録が完了しました。</p>
+            <p><strong>件名:</strong> ${scheduleTitle}</p>
+            ${message ? `<p><strong>ゲストからのメッセージ:</strong><br/>${message.replace(/\n/g, '<br/>')}</p>` : ""}
+            <p>詳細な調整内容については、以下のリンクよりご確認いただけます：<br/>
+            <a href="${detailUrl}">${detailUrl}</a></p>
+        `;
+    } else {
+        subject = `【システム通知】ゲストから再調整依頼が来ています（${scheduleTitle}）`;
+        html = `
+            <p>ゲストより、提示した候補日時では調整が難しいとの連絡がありました。</p>
+            <p><strong>件名:</strong> ${scheduleTitle}</p>
+            ${message ? `<p><strong>ゲストからのメッセージ:</strong><br/>${message.replace(/\n/g, '<br/>')}</p>` : ""}
+            <p>以下のリンクより詳細を確認し、再度日程調整を行ってください：<br/>
+            <a href="${detailUrl}">${detailUrl}</a></p>
+        `;
+    }
+
+    try {
+        await sendGraphMail(from, to, subject, html);
+        await prisma.notification.create({
+            data: { scheduleId, type: `ALERT_${type}`, recipient: to, success: true },
+        });
+    } catch (err: any) {
+        await prisma.notification.create({
+            data: { scheduleId, type: `ALERT_${type}`, recipient: to, success: false, error: String(err?.message ?? err) },
+        });
+        console.error("sendCreatorAlertMail error:", err);
+    }
+}
+
+/**
  * URLの有効期限切れ24時間前警告（社内作成者へ）
+
  */
 export async function sendExpiryWarningMail(
     to: string,

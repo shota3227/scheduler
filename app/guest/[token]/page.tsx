@@ -42,6 +42,7 @@ export default function GuestPage() {
     const [error, setError] = useState("");
     const [completed, setCompleted] = useState(false);
     const [completionMsg, setCompletionMsg] = useState("");
+    const [isRescheduleRequested, setIsRescheduleRequested] = useState(false);
     const [expired, setExpired] = useState(false);
     const confirmSectionRef = useRef<HTMLDivElement>(null);
 
@@ -123,6 +124,35 @@ export default function GuestPage() {
         }
     };
 
+    const handleReschedule = async () => {
+        if (!schedule) return;
+        if (!confirm("別の日程での再調整を依頼しますか？\n（入力した備考・メッセージも送信されます）")) return;
+
+        setSubmitting(true);
+        setError("");
+        try {
+            const res = await fetch("/api/guest/reschedule", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    token,
+                    message,
+                }),
+            });
+            const data = await res.json();
+
+            if (!res.ok) throw new Error(data.error || "エラーが発生しました");
+
+            setIsRescheduleRequested(true);
+            setCompletionMsg("再調整の依頼を送信しました。担当者からのご連絡をお待ちください。");
+            setCompleted(true);
+        } catch (e: any) {
+            setError(e.message || "エラーが発生しました");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -167,14 +197,22 @@ export default function GuestPage() {
                     {config?.logoUrl && (
                         <img src={config.logoUrl} alt="ロゴ" className="h-10 mx-auto mb-4 object-contain" />
                     )}
-                    <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-4 ${isRescheduleRequested ? "bg-amber-100" : "bg-green-100"}`}>
+                        {isRescheduleRequested ? (
+                            <svg className="w-8 h-8 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        ) : (
+                            <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                        )}
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">日程が確定しました</h2>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">
+                        {isRescheduleRequested ? "再調整の依頼を送信しました" : "日程が確定しました"}
+                    </h2>
 
-                    {selected && (
+                    {!isRescheduleRequested && selected && (
                         <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 my-6 text-left inline-block w-full">
                             <p className="text-sm font-medium text-blue-900 mb-2 text-center">以下の日時で確定いたしました</p>
                             <div className="flex items-center justify-center gap-2 text-blue-800 font-bold text-lg">
@@ -298,9 +336,17 @@ export default function GuestPage() {
                             id="confirm-slot-btn"
                             disabled={!selected || submitting}
                             onClick={handleSelect}
-                            className="w-full bg-blue-600 text-white rounded-xl px-4 py-3 font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="w-full bg-blue-600 text-white rounded-xl px-4 py-3 font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-3"
                         >
-                            {submitting ? "確定中..." : selected ? "この日時で確定する" : "日時を選択してください"}
+                            {submitting ? "処理中..." : selected ? "この日時で確定する" : "日時を選択してください"}
+                        </button>
+                        <button
+                            id="reschedule-request-btn"
+                            disabled={submitting}
+                            onClick={handleReschedule}
+                            className="w-full bg-white border border-gray-300 text-gray-700 rounded-xl px-4 py-3 font-medium hover:bg-gray-50 focus:bg-gray-50 transition-colors"
+                        >
+                            選択肢の中では調整が難しい
                         </button>
                         {config?.companyName && (
                             <p className="text-center text-gray-400 text-xs mt-4">{config.companyName}</p>

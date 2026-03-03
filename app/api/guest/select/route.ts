@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { isTokenValid } from "@/lib/token";
 import { getAvailableSlots, createCalendarEvent } from "@/lib/graph";
-import { sendConfirmedMail } from "@/lib/mail";
+import { sendGuestUrlMail, sendCreatorAlertMail } from "@/lib/mail";
 import { invalidateCache } from "@/lib/cache";
 import { ScheduleStatus } from "@prisma/client";
 import { startOfDay, addDays } from "date-fns";
@@ -140,18 +140,15 @@ export async function POST(request: NextRequest) {
         // キャッシュを無効化
         await invalidateCache(result.schedule.id);
 
-        // 確定通知メールをURL発行者（作成者）へSMTP経由で送信
-        const datetimeStr = `${toJSTString(result.slotStart)}〜${new Date(result.slotEnd).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" })}`;
-        sendConfirmedMail(
+        // 確定通知メールをURL発行者（作成者）へ送信（リンク付きのシステムアラート）
+        // const datetimeStr = `${ toJSTString(result.slotStart) }〜${ new Date(result.slotEnd).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo", hour: "2-digit", minute: "2-digit" }) } `;
+        sendCreatorAlertMail(
             result.creator.email,
-            {
-                creator_name: result.creator.name ?? result.creator.email,
-                title: result.scheduleTitle,
-                datetime: datetimeStr,
-                message: result.selection.message ?? "",
-            },
-            result.schedule.id
-        ).catch((err) => console.error("sendConfirmedMail failed:", err));
+            "CONFIRMED",
+            result.schedule.id,
+            result.scheduleTitle,
+            result.selection.message ?? ""
+        ).catch((err) => console.error("sendCreatorAlertMail failed:", err));
 
         // Outlookカレンダーに予定を作成（非同期・エラー無視）
         const finalAttendees = [...result.participantEmails];
