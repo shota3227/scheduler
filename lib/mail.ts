@@ -1,15 +1,12 @@
-import nodemailer from "nodemailer";
 import { prisma } from "@/lib/prisma";
+import { sendGraphMail } from "@/lib/graph";
 
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: Number(process.env.SMTP_PORT) === 465,
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
-    },
-});
+/**
+ * 共通の送信元アドレス（M365上の実在アカウント・共有メールボックス）
+ */
+function getSystemMailAddress(): string {
+    return process.env.SYSTEM_MAIL_ADDRESS || process.env.SMTP_FROM_ADDRESS || "scheduler@luvir.jp";
+}
 
 /**
  * 設定済みのメールテンプレートを取得し、変数を展開する
@@ -25,16 +22,12 @@ async function renderTemplate(key: string, variables: Record<string, string>): P
 }
 
 /**
- * メール送信（汎用）
+ * メール送信（汎用・Graph API経由）
  */
 async function sendMail(to: string, subject: string, html: string, scheduleId?: string, type?: string) {
+    const from = getSystemMailAddress();
     try {
-        await transporter.sendMail({
-            from: process.env.SMTP_FROM,
-            to,
-            subject,
-            html,
-        });
+        await sendGraphMail(from, to, subject, html);
         await prisma.notification.create({
             data: {
                 scheduleId,
@@ -73,16 +66,32 @@ export async function sendGuestUrlMail(
 
 /**
  * 日時確定通知（社内作成者へ）
+ * ※Graph API(sendMail)の送信元を作成者自身にするか、システムアドレスにするか選択可能です
  */
 export async function sendConfirmedMail(
-    to: string,
+    to: string, // 作成者のメールアドレス
     variables: Record<string, string>,
-    scheduleId: string
+    scheduleId: string,
+    sendAsCreator: boolean = false
 ) {
     const subject = await renderTemplate("email_confirmed_subject", variables);
     const body = await renderTemplate("email_confirmed_body", variables);
     const html = body.replace(/\n/g, "<br>");
-    await sendMail(to, subject, html, scheduleId, "CONFIRMED");
+
+    // sendAsCreatorがtrueなら、送信元も作成者とする（M365側で自身から自身への通知として扱う場合）
+    const from = sendAsCreator ? to : getSystemMailAddress();
+
+    try {
+        await sendGraphMail(from, to, subject, html);
+        await prisma.notification.create({
+            data: { scheduleId, type: "CONFIRMED", recipient: to, success: true },
+        });
+    } catch (err: any) {
+        await prisma.notification.create({
+            data: { scheduleId, type: "CONFIRMED", recipient: to, success: false, error: String(err?.message ?? err) },
+        });
+        console.error("sendConfirmedMail error:", err);
+    }
 }
 
 /**
