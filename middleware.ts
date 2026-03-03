@@ -5,6 +5,16 @@ import type { NextRequest } from "next/server";
 export default async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
+    // ファビコンを動的画像に書き換え（app/favicon.ico より優先させる）
+    if (pathname === "/favicon.ico") {
+        return NextResponse.rewrite(new URL("/api/images/branding_favicon_data", request.url));
+    }
+
+    // 画像配信APIは認証不要（ゲスト・外部クローラーからもアクセス可）
+    if (pathname.startsWith("/api/images/")) {
+        return NextResponse.next();
+    }
+
     // 社外ゲスト向けページは認証不要
     if (pathname.startsWith("/guest/") || pathname.startsWith("/api/guest/") || pathname.startsWith("/api/public/")) {
         return NextResponse.next();
@@ -42,6 +52,7 @@ export default async function middleware(request: NextRequest) {
 
 export const config = {
     matcher: [
-        "/((?!_next/static|_next/image|favicon.ico).*)",
+        // favicon.icoを含む（動的リライトのため）。静的ファイルと_nextは除外
+        "/((?!_next/static|_next/image).*)",
     ],
 };

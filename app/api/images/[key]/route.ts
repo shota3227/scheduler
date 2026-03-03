@@ -29,7 +29,7 @@ export async function GET(
             return new NextResponse(buffer, {
                 headers: {
                     "Content-Type": mimeType,
-                    "Cache-Control": "public, max-age=86400, s-maxage=86400, stale-while-revalidate=3600",
+                    "Cache-Control": "public, max-age=3600, s-maxage=3600, stale-while-revalidate=300",
                 },
             });
         }
