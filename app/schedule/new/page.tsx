@@ -42,6 +42,7 @@ export default function NewSchedulePage() {
     const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
     const [selectedSlots, setSelectedSlots] = useState<TimeSlot[]>([]);
     const [guestUrl, setGuestUrl] = useState("");
+    const [guestUrlExpiresAt, setGuestUrlExpiresAt] = useState("");
     const [urlCopied, setUrlCopied] = useState(false);
     const [loading, setLoading] = useState(false);
     const [loadingSlots, setLoadingSlots] = useState(false);
@@ -251,6 +252,7 @@ export default function NewSchedulePage() {
             if (!patchRes.ok) throw new Error("候補日時の保存に失敗しました");
 
             setGuestUrl(`${window.location.origin}/guest/${schedule.guestToken}`);
+            setGuestUrlExpiresAt(schedule.expiresAt);
             return true;
         } catch (e: any) {
             setError(e.message || "エラーが発生しました");
@@ -578,6 +580,11 @@ export default function NewSchedulePage() {
                                         {urlCopied ? "コピー済 ✓" : "コピー"}
                                     </button>
                                 </div>
+                                {guestUrlExpiresAt && (
+                                    <p className="mt-3 text-sm text-red-600 font-medium">
+                                        ※このURLは {new Date(guestUrlExpiresAt).toLocaleDateString("ja-JP", { month: "long", day: "numeric" })} {new Date(guestUrlExpiresAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })} まで有効です。
+                                    </p>
+                                )}
                             </div>
 
                             {selectedSlots.length > 0 && (
