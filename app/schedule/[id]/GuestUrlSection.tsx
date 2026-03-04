@@ -6,9 +6,10 @@ interface Props {
     scheduleId: string;
     guestUrl: string;
     emailSentAt: string | null;
+    expiresAt: string | null;
 }
 
-export default function GuestUrlSection({ scheduleId, guestUrl, emailSentAt }: Props) {
+export default function GuestUrlSection({ scheduleId, guestUrl, emailSentAt, expiresAt }: Props) {
     const [copied, setCopied] = useState(false);
     const [guestEmail, setGuestEmail] = useState("");
     const [sending, setSending] = useState(false);
@@ -74,6 +75,12 @@ export default function GuestUrlSection({ scheduleId, guestUrl, emailSentAt }: P
                     )}
                 </button>
             </div>
+
+            {expiresAt && (
+                <p className="mt-2 text-sm text-red-600 font-medium mb-5">
+                    ※このURLは {new Date(expiresAt).toLocaleDateString("ja-JP", { month: "long", day: "numeric" })} {new Date(expiresAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })} まで有効です。
+                </p>
+            )}
 
             {/* メール送信フォーム */}
             <div className="border-t border-gray-100 pt-4">

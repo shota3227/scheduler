@@ -84,12 +84,6 @@ export default async function ScheduleDetailPage({
                                 作成者: {schedule.creator.name}　・　作成日: {new Date(schedule.createdAt).toLocaleDateString("ja-JP")}
                             </p>
                         </div>
-                        {schedule.status === "PENDING" && (
-                            <p className="text-xs text-gray-400 text-right whitespace-nowrap">
-                                有効期限<br />
-                                <span className="text-gray-600">{new Date(schedule.expiresAt).toLocaleDateString("ja-JP")}</span>
-                            </p>
-                        )}
                     </div>
                 </div>
 
@@ -134,11 +128,10 @@ export default async function ScheduleDetailPage({
                                 return (
                                     <li
                                         key={slot.id}
-                                        className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm ${
-                                            isConfirmed
-                                                ? "bg-green-50 border border-green-200 text-green-800 font-medium"
-                                                : "bg-gray-50 text-gray-700"
-                                        }`}
+                                        className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm ${isConfirmed
+                                            ? "bg-green-50 border border-green-200 text-green-800 font-medium"
+                                            : "bg-gray-50 text-gray-700"
+                                            }`}
                                     >
                                         {isConfirmed && (
                                             <svg className="w-4 h-4 text-green-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -168,6 +161,7 @@ export default async function ScheduleDetailPage({
                         scheduleId={schedule.id}
                         guestUrl={guestUrl}
                         emailSentAt={schedule.emailSentAt ? schedule.emailSentAt.toISOString() : null}
+                        expiresAt={schedule.expiresAt ? schedule.expiresAt.toISOString() : null}
                     />
                 )}
 

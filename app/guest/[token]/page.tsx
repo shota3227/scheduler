@@ -265,11 +265,6 @@ export default function GuestPage() {
                             <p className="text-blue-700 mt-0.5">所要時間: {schedule.duration}分</p>
                             {schedule.location && <p className="text-blue-700">場所: {schedule.location}</p>}
                             {schedule.address && <p className="text-blue-700">{schedule.address}</p>}
-                            {schedule.expiresAt && (
-                                <p className="text-red-600 font-medium mt-2">
-                                    ※ 有効期限: {new Date(schedule.expiresAt).toLocaleDateString("ja-JP", { month: "short", day: "numeric" })} {new Date(schedule.expiresAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}
-                                </p>
-                            )}
                         </div>
                     )}
                 </div>
