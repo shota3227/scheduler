@@ -24,19 +24,10 @@ export default async function DashboardPage(
     const rawFilter = searchParams?.filter || "all";
     const filter = rawFilter === "pending" || rawFilter === "expired" ? rawFilter : "all";
 
-    const baseWhere = isAdmin
-        ? {
-            timeSlots: { some: { isActive: true } },
-            status: { not: "RESOLVED_EXTERNALLY" as const },
-        }
-        : {
-            creatorId: user.id,
-            timeSlots: { some: { isActive: true } },
-            status: { not: "RESOLVED_EXTERNALLY" as const },
-        };
-
     const schedules = await prisma.scheduleRequest.findMany({
-        where: baseWhere,
+        where: isAdmin
+            ? { timeSlots: { some: { isActive: true } } }
+            : { creatorId: user.id, timeSlots: { some: { isActive: true } } },
         include: {
             creator: { select: { name: true } },
             participants: { include: { user: { select: { name: true } } } },
@@ -48,16 +39,17 @@ export default async function DashboardPage(
     });
 
     const activeStatuses = new Set(["PENDING", "RESCHEDULE_REQUESTED"]);
-    const pendingCount = schedules.filter((s) => activeStatuses.has(s.status)).length;
-    const confirmedCount = schedules.filter((s) => s.status === "CONFIRMED").length;
+    const visibleSchedules = schedules.filter((s) => s.status !== "RESOLVED_EXTERNALLY");
+    const pendingCount = visibleSchedules.filter((s) => activeStatuses.has(s.status)).length;
+    const confirmedCount = visibleSchedules.filter((s) => s.status === "CONFIRMED").length;
 
     // フィルタリング処理
     const displaySchedules =
         filter === "pending"
-            ? schedules.filter((s) => activeStatuses.has(s.status))
+            ? visibleSchedules.filter((s) => activeStatuses.has(s.status))
             : filter === "expired"
-                ? schedules.filter((s) => s.status === "EXPIRED")
-                : schedules;
+                ? visibleSchedules.filter((s) => s.status === "EXPIRED")
+                : visibleSchedules;
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -97,7 +89,7 @@ export default async function DashboardPage(
                     </div>
                     <div className="bg-white rounded-xl border border-gray-200 p-6">
                         <p className="text-sm text-gray-500 mb-1">合計</p>
-                        <p className="text-3xl font-bold text-gray-700">{schedules.length}</p>
+                        <p className="text-3xl font-bold text-gray-700">{visibleSchedules.length}</p>
                     </div>
                 </div>
 

@@ -6,12 +6,17 @@ import { prisma } from "@/lib/prisma";
  * Cronが未実行でも、画面/API参照時に補正できるようにするための保険処理。
  */
 export async function refreshExpiredScheduleStatuses(now: Date = new Date()): Promise<number> {
-    const result = await prisma.scheduleRequest.updateMany({
-        where: {
-            status: { in: [ScheduleStatus.PENDING, ScheduleStatus.RESCHEDULE_REQUESTED] },
-            expiresAt: { lt: now },
-        },
-        data: { status: ScheduleStatus.EXPIRED },
-    });
-    return result.count;
+    try {
+        const result = await prisma.scheduleRequest.updateMany({
+            where: {
+                status: { in: [ScheduleStatus.PENDING, ScheduleStatus.RESCHEDULE_REQUESTED] },
+                expiresAt: { lt: now },
+            },
+            data: { status: ScheduleStatus.EXPIRED },
+        });
+        return result.count;
+    } catch (error) {
+        console.error("refreshExpiredScheduleStatuses failed:", error);
+        return 0;
+    }
 }
