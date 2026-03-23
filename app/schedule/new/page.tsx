@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { formatGuestUrlExpiry } from "@/lib/expiry";
+import { formatSlotDateTime, getJstDateKey, getJstMinutes } from "@/lib/utils";
 
 interface Member {
     id: string;
@@ -15,12 +16,9 @@ interface TimeSlot {
     end: string;
 }
 
-// ローカル日付文字列（YYYY-MM-DD）を生成
-function toLocalDateStr(d: Date): string {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
+// JST日付文字列（YYYY-MM-DD）を生成
+function toJstDateStr(d: Date): string {
+    return getJstDateKey(d);
 }
 
 // 時刻選択肢（30分刻み、7:00〜22:00）
@@ -50,11 +48,11 @@ export default function NewSchedulePage() {
     const [error, setError] = useState("");
 
     // 絞り込みフィルタ
-    const [filterStartDate, setFilterStartDate] = useState(() => toLocalDateStr(new Date()));
+    const [filterStartDate, setFilterStartDate] = useState(() => toJstDateStr(new Date()));
     const [filterEndDate, setFilterEndDate] = useState(() => {
         const d = new Date();
         d.setDate(d.getDate() + 14);
-        return toLocalDateStr(d);
+        return toJstDateStr(d);
     });
     const [filterStartTime, setFilterStartTime] = useState("09:00");
     const [filterEndTime, setFilterEndTime] = useState("18:00");
@@ -89,27 +87,24 @@ export default function NewSchedulePage() {
     const filteredSlots = availableSlots.filter((slot) => {
         const start = new Date(slot.start);
         const end = new Date(slot.end);
+        const slotDateKey = getJstDateKey(start);
 
-        // 期間フィルタ（スロット開始日で判定）
+        // 期間フィルタ（JSTのスロット開始日で判定）
         if (filterStartDate) {
-            const [y, mo, d] = filterStartDate.split("-").map(Number);
-            const localStart = new Date(y, mo - 1, d, 0, 0, 0, 0);
-            if (start < localStart) return false;
+            if (slotDateKey < filterStartDate) return false;
         }
         if (filterEndDate) {
-            const [y, mo, d] = filterEndDate.split("-").map(Number);
-            const localEnd = new Date(y, mo - 1, d, 23, 59, 59, 999);
-            if (start > localEnd) return false;
+            if (slotDateKey > filterEndDate) return false;
         }
 
-        // 開始時刻フィルタ（スロット開始時刻がフィルタ以降か）
-        const slotStartMinutes = start.getHours() * 60 + start.getMinutes();
+        // 開始時刻フィルタ（JST時刻）
+        const slotStartMinutes = getJstMinutes(start);
         if (filterStartTime) {
             const [h, m] = filterStartTime.split(":").map(Number);
             if (slotStartMinutes < h * 60 + m) return false;
         }
 
-        let slotEndMinutes = end.getHours() * 60 + end.getMinutes();
+        let slotEndMinutes = getJstMinutes(end);
         if (slotEndMinutes === 0 || slotEndMinutes < slotStartMinutes) {
             slotEndMinutes += 24 * 60; // 00:00 は 24:00 として扱う
         }
@@ -129,23 +124,22 @@ export default function NewSchedulePage() {
             prev.filter((slot) => {
                 const start = new Date(slot.start);
                 const end = new Date(slot.end);
+                const slotDateKey = getJstDateKey(start);
 
                 if (filterStartDate) {
-                    const [y, mo, d] = filterStartDate.split("-").map(Number);
-                    if (start < new Date(y, mo - 1, d, 0, 0, 0, 0)) return false;
+                    if (slotDateKey < filterStartDate) return false;
                 }
                 if (filterEndDate) {
-                    const [y, mo, d] = filterEndDate.split("-").map(Number);
-                    if (start > new Date(y, mo - 1, d, 23, 59, 59, 999)) return false;
+                    if (slotDateKey > filterEndDate) return false;
                 }
 
-                const slotStartMinutes = start.getHours() * 60 + start.getMinutes();
+                const slotStartMinutes = getJstMinutes(start);
                 if (filterStartTime) {
                     const [h, m] = filterStartTime.split(":").map(Number);
                     if (slotStartMinutes < h * 60 + m) return false;
                 }
 
-                let slotEndMinutes = end.getHours() * 60 + end.getMinutes();
+                let slotEndMinutes = getJstMinutes(end);
                 if (slotEndMinutes === 0 || slotEndMinutes < slotStartMinutes) {
                     slotEndMinutes += 24 * 60; // 00:00 は 24:00 として扱う
                 }
@@ -526,9 +520,7 @@ export default function NewSchedulePage() {
                                                             className="w-4 h-4 text-blue-600 rounded"
                                                         />
                                                         <span className="text-sm text-gray-900">
-                                                            {new Date(slot.start).toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" })}
-                                                            {" "}
-                                                            {new Date(slot.start).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}〜{new Date(slot.end).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}
+                                                            {formatSlotDateTime(slot.start, slot.end)}
                                                         </span>
                                                     </label>
                                                 );
@@ -594,10 +586,7 @@ export default function NewSchedulePage() {
                                     <ul className="space-y-1.5">
                                         {selectedSlots.map((slot, i) => (
                                             <li key={i} className="text-sm text-gray-700">
-                                                {new Date(slot.start).toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" })}
-                                                {" "}
-                                                {new Date(slot.start).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}〜
-                                                {new Date(slot.end).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })}
+                                                {formatSlotDateTime(slot.start, slot.end)}
                                             </li>
                                         ))}
                                     </ul>

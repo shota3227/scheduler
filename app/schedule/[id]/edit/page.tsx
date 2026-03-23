@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { formatSlotDateTime, getJstDateKey, getJstMinutes } from "@/lib/utils";
 
 interface SlotItem {
     id: string;
@@ -22,10 +23,7 @@ interface Member {
 }
 
 function toLocalDateStr(d: Date): string {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
+    return getJstDateKey(d);
 }
 
 const TIME_OPTIONS: string[] = [];
@@ -35,15 +33,7 @@ for (let h = 7; h <= 22; h++) {
 }
 
 function fmtSlot(start: string, end: string) {
-    const s = new Date(start);
-    const e = new Date(end);
-    return (
-        s.toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" }) +
-        " " +
-        s.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" }) +
-        "〜" +
-        e.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })
-    );
+    return formatSlotDateTime(start, end);
 }
 
 const DURATION_OPTIONS = [
@@ -151,21 +141,23 @@ export default function ScheduleEditPage() {
     const filteredAvail = availableSlots.filter((slot) => {
         const start = new Date(slot.start);
         const end = new Date(slot.end);
+        const slotDateKey = getJstDateKey(start);
 
         if (filterStartDate) {
-            const [y, mo, d] = filterStartDate.split("-").map(Number);
-            if (start < new Date(y, mo - 1, d, 0, 0, 0, 0)) return false;
+            if (slotDateKey < filterStartDate) return false;
         }
         if (filterEndDate) {
-            const [y, mo, d] = filterEndDate.split("-").map(Number);
-            if (start > new Date(y, mo - 1, d, 23, 59, 59, 999)) return false;
+            if (slotDateKey > filterEndDate) return false;
         }
-        const startMin = start.getHours() * 60 + start.getMinutes();
+        const startMin = getJstMinutes(start);
         if (filterStartTime) {
             const [h, m] = filterStartTime.split(":").map(Number);
             if (startMin < h * 60 + m) return false;
         }
-        const endMin = end.getHours() * 60 + end.getMinutes();
+        let endMin = getJstMinutes(end);
+        if (endMin === 0 || endMin < startMin) {
+            endMin += 24 * 60;
+        }
         if (filterEndTime) {
             const [h, m] = filterEndTime.split(":").map(Number);
             if (endMin > h * 60 + m) return false;
