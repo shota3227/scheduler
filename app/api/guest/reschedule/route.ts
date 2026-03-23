@@ -39,6 +39,9 @@ export async function POST(request: NextRequest) {
         if (schedule.status === "CANCELLED") {
             return NextResponse.json({ error: "cancelled", message: "この日程調整はキャンセルされています" }, { status: 400 });
         }
+        if (schedule.status === "RESOLVED_EXTERNALLY") {
+            return NextResponse.json({ error: "resolved", message: "この日程調整は別途対応済みです" }, { status: 400 });
+        }
 
         // トランザクションでステータスを更新し、GuestSelectionにメッセージのみ保存（slotIdは無し）
         // ※ ただし現在のGuestSelectionスキーマは slotId が必須(String & @unique)なため、

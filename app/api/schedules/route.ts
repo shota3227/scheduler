@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { generateGuestToken, getExpiresAt } from "@/lib/token";
 import { ScheduleStatus } from "@prisma/client";
 import { z } from "zod";
+import { refreshExpiredScheduleStatuses } from "@/lib/schedule-status";
 
 const createSchema = z.object({
     title: z.string().min(1),
@@ -24,6 +25,8 @@ export async function GET(request: NextRequest) {
     if (!session?.user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    await refreshExpiredScheduleStatuses();
 
     const user = session.user as any;
     const isAdmin = user.role === "ADMIN";

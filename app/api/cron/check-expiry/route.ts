@@ -19,10 +19,10 @@ export async function GET(request: NextRequest) {
     const twoWeeksAgo = addDays(now, -14);
     const reminderTargetRange = getJstDayRange(now, 2); // JSTで「2日後に期限切れ」の案件
 
-    // 2日後に期限切れになるPENDINGの調整を検索
+    // 2日後に期限切れになる「調整進行中(PENDING/RESCHEDULE_REQUESTED)」を検索
     const soonExpiring = await prisma.scheduleRequest.findMany({
         where: {
-            status: ScheduleStatus.PENDING,
+            status: { in: [ScheduleStatus.PENDING, ScheduleStatus.RESCHEDULE_REQUESTED] },
             expiresAt: {
                 gte: reminderTargetRange.start,
                 lte: reminderTargetRange.end,
@@ -61,10 +61,10 @@ export async function GET(request: NextRequest) {
         ).catch(console.error);
     }
 
-    // 期限切れのPENDINGをEXPIREDに更新
+    // 期限切れの進行中ステータスをEXPIREDに更新
     const expired = await prisma.scheduleRequest.updateMany({
         where: {
-            status: ScheduleStatus.PENDING,
+            status: { in: [ScheduleStatus.PENDING, ScheduleStatus.RESCHEDULE_REQUESTED] },
             expiresAt: { lt: now },
         },
         data: { status: ScheduleStatus.EXPIRED },

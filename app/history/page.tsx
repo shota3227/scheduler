@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getStatusLabel, getStatusColor, formatDateTime } from "@/lib/utils";
 import { signOut } from "@/auth";
 import { CancelButton } from "./CancelButton";
+import { refreshExpiredScheduleStatuses } from "@/lib/schedule-status";
 
 export default async function HistoryPage() {
     const session = await auth();
@@ -12,6 +13,8 @@ export default async function HistoryPage() {
 
     const user = session.user as any;
     const isAdmin = user.role === "ADMIN";
+
+    await refreshExpiredScheduleStatuses();
 
     const schedules = await prisma.scheduleRequest.findMany({
         where: isAdmin
@@ -25,6 +28,7 @@ export default async function HistoryPage() {
         },
         orderBy: { createdAt: "desc" },
     });
+    const activeStatuses = new Set(["PENDING", "RESCHEDULE_REQUESTED"]);
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -95,7 +99,7 @@ export default async function HistoryPage() {
                                                 : "—"}
                                         </td>
                                         <td className="px-4 py-4">
-                                            {s.status === "PENDING" && (
+                                            {activeStatuses.has(s.status) && (
                                                 <CancelButton action={async () => {
                                                     "use server";
                                                     await prisma.scheduleRequest.update({

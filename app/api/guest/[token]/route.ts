@@ -33,7 +33,7 @@ export async function GET(
         return NextResponse.json({ error: "URLの有効期限が切れています" }, { status: 410 });
     }
 
-    if (schedule.status === "CONFIRMED") {
+    if (schedule.status === "CONFIRMED" || schedule.status === "RESOLVED_EXTERNALLY") {
         return NextResponse.json({ error: "already_confirmed", status: schedule.status });
     }
 
@@ -54,7 +54,7 @@ export async function GET(
     }
 
     // 候補日時0件のURLアクセス時、URL作成者へアテンションメール（連打対策で24時間に1回まで）
-    if (schedule.status === "PENDING" && slots.length === 0) {
+    if ((schedule.status === "PENDING" || schedule.status === "RESCHEDULE_REQUESTED") && slots.length === 0) {
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const alreadyNotified = await prisma.notification.findFirst({
             where: {

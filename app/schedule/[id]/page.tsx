@@ -7,6 +7,7 @@ import { getStatusLabel, getStatusColor, formatDateTime } from "@/lib/utils";
 import { getGuestUrl } from "@/lib/token";
 import GuestUrlSection from "./GuestUrlSection";
 import CancelButton from "./CancelButton";
+import { refreshExpiredScheduleStatuses } from "@/lib/schedule-status";
 
 export default async function ScheduleDetailPage({
     params,
@@ -19,6 +20,8 @@ export default async function ScheduleDetailPage({
     const { id } = await params;
     const user = session.user as any;
     const isAdmin = user.role === "ADMIN";
+
+    await refreshExpiredScheduleStatuses();
 
     const schedule = await prisma.scheduleRequest.findUnique({
         where: { id },
@@ -39,6 +42,7 @@ export default async function ScheduleDetailPage({
 
     const canManage = isAdmin || isCreator;
     const guestUrl = getGuestUrl(schedule.guestToken);
+    const activeStatuses = new Set(["PENDING", "RESCHEDULE_REQUESTED"]);
 
     const cancelAction = async () => {
         "use server";
@@ -155,8 +159,8 @@ export default async function ScheduleDetailPage({
                     )}
                 </div>
 
-                {/* ゲスト用URL（PENDING かつ管理権限あり） */}
-                {schedule.status === "PENDING" && canManage && (
+                {/* ゲスト用URL（進行中ステータス かつ管理権限あり） */}
+                {activeStatuses.has(schedule.status) && canManage && (
                     <GuestUrlSection
                         scheduleId={schedule.id}
                         guestUrl={guestUrl}
@@ -166,7 +170,7 @@ export default async function ScheduleDetailPage({
                 )}
 
                 {/* アクションボタン */}
-                {canManage && (schedule.status === "PENDING" || schedule.status === "CONFIRMED") && (
+                {canManage && (activeStatuses.has(schedule.status) || schedule.status === "CONFIRMED") && (
                     <div className="flex items-center justify-end gap-4">
                         <Link
                             href={`/schedule/${id}/edit`}

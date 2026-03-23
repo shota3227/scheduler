@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ScheduleStatus } from "@prisma/client";
 import { sendNoSlotsMail } from "@/lib/mail";
+import { refreshExpiredScheduleStatuses } from "@/lib/schedule-status";
 
 // 調整詳細取得
 export async function GET(
@@ -13,6 +14,9 @@ export async function GET(
     if (!session?.user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    await refreshExpiredScheduleStatuses();
+
     const { id } = await params;
     const user = session.user as any;
 
@@ -111,10 +115,22 @@ export async function PATCH(
         }
     }
 
+    const nextStatus: ScheduleStatus | undefined =
+        body.status !== undefined
+            ? (body.status as ScheduleStatus)
+            : (
+                body.timeSlots &&
+                Array.isArray(body.timeSlots) &&
+                body.timeSlots.length > 0 &&
+                schedule.status === ScheduleStatus.RESCHEDULE_REQUESTED
+            )
+                ? ScheduleStatus.PENDING
+                : undefined;
+
     const updated = await prisma.scheduleRequest.update({
         where: { id },
         data: {
-            ...(body.status !== undefined && { status: body.status as ScheduleStatus }),
+            ...(nextStatus !== undefined && { status: nextStatus }),
             ...(body.title && { title: body.title }),
             ...(body.duration && { duration: Number(body.duration) }),
             ...(body.location !== undefined && { location: body.location }),
@@ -132,7 +148,7 @@ export async function PATCH(
         beforeActiveSlotCount !== null &&
         beforeActiveSlotCount > 0 &&
         updated.timeSlots.length === 0 &&
-        updated.status === ScheduleStatus.PENDING
+        (updated.status === ScheduleStatus.PENDING || updated.status === ScheduleStatus.RESCHEDULE_REQUESTED)
     ) {
         await sendNoSlotsMail(
             schedule.creator.email,

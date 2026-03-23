@@ -122,8 +122,10 @@ export function getJstMinutes(value: string | Date): number {
 export function getStatusLabel(status: string): string {
     const labels: Record<string, string> = {
         PENDING: "調整中",
+        RESCHEDULE_REQUESTED: "再調整依頼",
         CONFIRMED: "確定済み",
         EXPIRED: "期限切れ",
+        RESOLVED_EXTERNALLY: "別途対応済み",
         CANCELLED: "キャンセル",
     };
     return labels[status] ?? status;
@@ -135,8 +137,10 @@ export function getStatusLabel(status: string): string {
 export function getStatusColor(status: string): string {
     const colors: Record<string, string> = {
         PENDING: "text-blue-600 bg-blue-50 border-blue-200",
+        RESCHEDULE_REQUESTED: "text-amber-700 bg-amber-50 border-amber-200",
         CONFIRMED: "text-green-600 bg-green-50 border-green-200",
         EXPIRED: "text-gray-500 bg-gray-50 border-gray-200",
+        RESOLVED_EXTERNALLY: "text-slate-600 bg-slate-50 border-slate-200",
         CANCELLED: "text-red-600 bg-red-50 border-red-200",
     };
     return colors[status] ?? "text-gray-600 bg-gray-50 border-gray-200";

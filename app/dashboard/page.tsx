@@ -7,6 +7,7 @@ import { formatDateTime } from "@/lib/utils";
 import { signOut } from "@/auth";
 import CancelButton from "@/app/schedule/[id]/CancelButton";
 import { formatGuestUrlExpiry } from "@/lib/expiry";
+import { refreshExpiredScheduleStatuses } from "@/lib/schedule-status";
 
 export default async function DashboardPage(
     props: { searchParams: Promise<{ filter?: string }> }
@@ -17,13 +18,25 @@ export default async function DashboardPage(
     const user = session.user as any;
     const isAdmin = user.role === "ADMIN";
 
+    await refreshExpiredScheduleStatuses();
+
     const searchParams = await props.searchParams;
-    const filter = searchParams?.filter || "all";
+    const rawFilter = searchParams?.filter || "all";
+    const filter = rawFilter === "pending" || rawFilter === "expired" ? rawFilter : "all";
+
+    const baseWhere = isAdmin
+        ? {
+            timeSlots: { some: { isActive: true } },
+            status: { not: "RESOLVED_EXTERNALLY" as const },
+        }
+        : {
+            creatorId: user.id,
+            timeSlots: { some: { isActive: true } },
+            status: { not: "RESOLVED_EXTERNALLY" as const },
+        };
 
     const schedules = await prisma.scheduleRequest.findMany({
-        where: isAdmin
-            ? { timeSlots: { some: { isActive: true } } }
-            : { creatorId: user.id, timeSlots: { some: { isActive: true } } },
+        where: baseWhere,
         include: {
             creator: { select: { name: true } },
             participants: { include: { user: { select: { name: true } } } },
@@ -34,13 +47,17 @@ export default async function DashboardPage(
         take: 10,
     });
 
-    const pendingCount = schedules.filter((s) => s.status === "PENDING").length;
+    const activeStatuses = new Set(["PENDING", "RESCHEDULE_REQUESTED"]);
+    const pendingCount = schedules.filter((s) => activeStatuses.has(s.status)).length;
     const confirmedCount = schedules.filter((s) => s.status === "CONFIRMED").length;
 
     // フィルタリング処理
-    const displaySchedules = filter === "pending"
-        ? schedules.filter((s) => s.status === "PENDING")
-        : schedules;
+    const displaySchedules =
+        filter === "pending"
+            ? schedules.filter((s) => activeStatuses.has(s.status))
+            : filter === "expired"
+                ? schedules.filter((s) => s.status === "EXPIRED")
+                : schedules;
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -89,8 +106,24 @@ export default async function DashboardPage(
                     <div className="flex items-center gap-4">
                         <h2 className="text-lg font-bold text-gray-900">最近の調整</h2>
                         <div className="flex bg-gray-100 rounded-lg p-1">
-                            <Link href="/dashboard" className={`px-3 py-1.5 text-sm rounded-md transition-colors ${filter !== 'pending' ? 'bg-white shadow-sm font-medium text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>すべて</Link>
-                            <Link href="/dashboard?filter=pending" className={`px-3 py-1.5 text-sm rounded-md transition-colors ${filter === 'pending' ? 'bg-white shadow-sm font-medium text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>調整中のみ</Link>
+                            <Link
+                                href="/dashboard"
+                                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${filter === "all" ? "bg-white shadow-sm font-medium text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+                            >
+                                すべて
+                            </Link>
+                            <Link
+                                href="/dashboard?filter=pending"
+                                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${filter === "pending" ? "bg-white shadow-sm font-medium text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+                            >
+                                調整中のみ
+                            </Link>
+                            <Link
+                                href="/dashboard?filter=expired"
+                                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${filter === "expired" ? "bg-white shadow-sm font-medium text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
+                            >
+                                期限切れのみ
+                            </Link>
                         </div>
                     </div>
                     <Link
@@ -109,7 +142,7 @@ export default async function DashboardPage(
                 {displaySchedules.length === 0 ? (
                     <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
                         <p className="text-gray-500">条件に一致する日程調整がありません</p>
-                        {filter === "pending" ? (
+                        {filter === "pending" || filter === "expired" ? (
                             <Link href="/dashboard" className="mt-3 inline-block text-blue-600 text-sm hover:underline">
                                 すべての調整を表示する →
                             </Link>
@@ -130,6 +163,14 @@ export default async function DashboardPage(
                                     data: { status: "CANCELLED" },
                                 });
                                 redirect("/dashboard");
+                            };
+                            const resolveExternallyAction = async () => {
+                                "use server";
+                                await prisma.scheduleRequest.update({
+                                    where: { id: schedule.id },
+                                    data: { status: "RESOLVED_EXTERNALLY" },
+                                });
+                                redirect(filter === "expired" ? "/dashboard?filter=expired" : "/dashboard");
                             };
                             return (
                                 <div
@@ -167,7 +208,7 @@ export default async function DashboardPage(
                                     {/* アクションバー */}
                                     {canManage && (
                                         <div className="border-t border-gray-100 px-5 py-2 flex items-center justify-end gap-4 bg-gray-50">
-                                            {schedule.status === "PENDING" && (
+                                            {activeStatuses.has(schedule.status) && (
                                                 <Link
                                                     href={`/schedule/${schedule.id}/edit`}
                                                     className="text-xs text-blue-600 hover:underline font-medium"
@@ -175,8 +216,21 @@ export default async function DashboardPage(
                                                     編集
                                                 </Link>
                                             )}
-                                            {schedule.status === "PENDING" && (
+                                            {activeStatuses.has(schedule.status) && (
                                                 <CancelButton action={cancelAction} />
+                                            )}
+                                            {schedule.status === "EXPIRED" && (
+                                                <form action={resolveExternallyAction}>
+                                                    <button
+                                                        type="submit"
+                                                        className="text-xs text-slate-600 hover:underline cursor-pointer"
+                                                        onClick={(e) => {
+                                                            if (!confirm("この案件を「別途対応済み」にしますか？")) e.preventDefault();
+                                                        }}
+                                                    >
+                                                        別途対応済みにする
+                                                    </button>
+                                                </form>
                                             )}
                                         </div>
                                     )}
