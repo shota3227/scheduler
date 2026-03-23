@@ -176,7 +176,7 @@ model GuestSelection {
 model Notification {
   id         String   @id @default(cuid())
   scheduleId String?
-  type       String   // CONFIRMED / EXPIRED_WARNING / NO_SLOTS / URL_SENT
+  type       String   // CONFIRMED / EXPIRED_WARNING / NO_SLOTS / NO_SLOTS_URL_OPEN / URL_SENT
   recipient  String
   sentAt     DateTime @default(now())
   success    Boolean  @default(true)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ScheduleStatus } from "@prisma/client";
+import { sendNoSlotsMail } from "@/lib/mail";
 
 // 調整詳細取得
 export async function GET(
@@ -54,7 +55,12 @@ export async function PATCH(
     const user = session.user as any;
     const body = await request.json();
 
-    const schedule = await prisma.scheduleRequest.findUnique({ where: { id } });
+    const schedule = await prisma.scheduleRequest.findUnique({
+        where: { id },
+        include: {
+            creator: { select: { email: true, name: true } },
+        },
+    });
     if (!schedule) {
         return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -82,6 +88,10 @@ export async function PATCH(
             });
         }
     }
+
+    const beforeActiveSlotCount = body.timeSlots && Array.isArray(body.timeSlots)
+        ? await prisma.timeSlot.count({ where: { scheduleId: id, isActive: true } })
+        : null;
 
     // タイムスロットの更新（既存を非活性化して再作成）
     if (body.timeSlots && Array.isArray(body.timeSlots)) {
@@ -116,6 +126,24 @@ export async function PATCH(
             timeSlots: { where: { isActive: true } },
         },
     });
+
+    // 候補日時が「>0件 → 0件」に変化したとき、URL作成者へアテンションメール送信
+    if (
+        beforeActiveSlotCount !== null &&
+        beforeActiveSlotCount > 0 &&
+        updated.timeSlots.length === 0 &&
+        updated.status === ScheduleStatus.PENDING
+    ) {
+        await sendNoSlotsMail(
+            schedule.creator.email,
+            {
+                title: updated.title,
+                creator_name: schedule.creator.name,
+            },
+            id,
+            "NO_SLOTS"
+        ).catch((err) => console.error("sendNoSlotsMail on slot-empty transition failed:", err));
+    }
 
     return NextResponse.json(updated);
 }

@@ -165,10 +165,11 @@ export async function sendExpiryWarningMail(
 export async function sendNoSlotsMail(
     to: string,
     variables: Record<string, string>,
-    scheduleId: string
+    scheduleId: string,
+    notificationType: string = "NO_SLOTS"
 ) {
     const subject = await renderTemplate("email_no_slots_subject", variables);
     const body = await renderTemplate("email_no_slots_body", variables);
     const html = body.replace(/\n/g, "<br>");
-    await sendMail(to, subject, html, scheduleId, "NO_SLOTS");
+    await sendMail(to, subject, html, scheduleId, notificationType);
 }
