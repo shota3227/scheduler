@@ -6,6 +6,7 @@ import { getStatusLabel, getStatusColor } from "@/lib/utils";
 import { formatDateTime } from "@/lib/utils";
 import { signOut } from "@/auth";
 import CancelButton from "@/app/schedule/[id]/CancelButton";
+import ResolveExternallyButton from "@/app/dashboard/ResolveExternallyButton";
 import { formatGuestUrlExpiry } from "@/lib/expiry";
 import { refreshExpiredScheduleStatuses } from "@/lib/schedule-status";
 
@@ -212,17 +213,7 @@ export default async function DashboardPage(
                                                 <CancelButton action={cancelAction} />
                                             )}
                                             {schedule.status === "EXPIRED" && (
-                                                <form action={resolveExternallyAction}>
-                                                    <button
-                                                        type="submit"
-                                                        className="text-xs text-slate-600 hover:underline cursor-pointer"
-                                                        onClick={(e) => {
-                                                            if (!confirm("この案件を「別途対応済み」にしますか？")) e.preventDefault();
-                                                        }}
-                                                    >
-                                                        別途対応済みにする
-                                                    </button>
-                                                </form>
+                                                <ResolveExternallyButton action={resolveExternallyAction} />
                                             )}
                                         </div>
                                     )}
