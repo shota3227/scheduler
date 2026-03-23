@@ -6,6 +6,7 @@ import { getStatusLabel, getStatusColor } from "@/lib/utils";
 import { formatDateTime } from "@/lib/utils";
 import { signOut } from "@/auth";
 import CancelButton from "@/app/schedule/[id]/CancelButton";
+import { formatGuestUrlExpiry } from "@/lib/expiry";
 
 export default async function DashboardPage(
     props: { searchParams: Promise<{ filter?: string }> }
@@ -157,7 +158,7 @@ export default async function DashboardPage(
                                             <div className="text-right">
                                                 <p className="text-xs text-gray-400">有効期限</p>
                                                 <p className="text-xs text-gray-600">
-                                                    {new Date(schedule.expiresAt).toLocaleDateString("ja-JP")}
+                                                    {formatGuestUrlExpiry(schedule.expiresAt)}
                                                 </p>
                                             </div>
                                         </div>

@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import { getGuestUrlExpiresAt } from "@/lib/expiry";
 
 /**
  * 推測不能なゲストトークンを生成（256bit = 64文字の hex）
@@ -8,12 +9,10 @@ export function generateGuestToken(): string {
 }
 
 /**
- * URLの有効期限を計算（現在時刻から72時間後）
+ * URLの有効期限を計算（発行日から5日目の24:00）
  */
 export function getExpiresAt(): Date {
-    const expires = new Date();
-    expires.setHours(expires.getHours() + 72);
-    return expires;
+    return getGuestUrlExpiresAt();
 }
 
 /**

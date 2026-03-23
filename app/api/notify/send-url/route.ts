@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { sendGuestUrlMail } from "@/lib/mail";
 import { getGuestUrl } from "@/lib/token";
+import { formatGuestUrlExpiry } from "@/lib/expiry";
 import { z } from "zod";
 
 const sendMailSchema = z.object({
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
             title: schedule.title,
             url: guestUrl,
             creator_name: schedule.creator.name,
-            expires_at: schedule.expiresAt.toLocaleString("ja-JP"),
+            expires_at: formatGuestUrlExpiry(schedule.expiresAt, { includeYear: true }),
         },
         scheduleId
     );

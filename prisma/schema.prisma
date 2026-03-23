@@ -97,7 +97,7 @@ model ScheduleRequest {
   status      ScheduleStatus @default(PENDING)
   creatorId   String
   guestToken  String         @unique @default(cuid()) // 社外向けURL用トークン
-  expiresAt   DateTime       // URLの有効期限（72時間後）
+  expiresAt   DateTime       // URLの有効期限（発行日から5日目の24:00）
   emailBody   String?        @db.Text // 社外向けメール本文（カスタマイズ済み）
   emailSentAt DateTime?      // メール送信日時
 

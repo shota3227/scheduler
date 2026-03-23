@@ -15,6 +15,11 @@ export default async function middleware(request: NextRequest) {
         return NextResponse.next();
     }
 
+    // Cron API は認証ミドルウェアを通さず、各Route側のBearer検証に任せる
+    if (pathname.startsWith("/api/cron/")) {
+        return NextResponse.next();
+    }
+
     // 社外ゲスト向けページは認証不要
     if (pathname.startsWith("/guest/") || pathname.startsWith("/api/guest/") || pathname.startsWith("/api/public/")) {
         return NextResponse.next();

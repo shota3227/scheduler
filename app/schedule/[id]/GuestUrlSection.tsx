@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatGuestUrlExpiry } from "@/lib/expiry";
 
 interface Props {
     scheduleId: string;
@@ -78,7 +79,7 @@ export default function GuestUrlSection({ scheduleId, guestUrl, emailSentAt, exp
 
             {expiresAt && (
                 <p className="mt-2 text-sm text-red-600 font-medium mb-5">
-                    ※このURLは {new Date(expiresAt).toLocaleDateString("ja-JP", { month: "long", day: "numeric" })} {new Date(expiresAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })} まで有効です。
+                    ※このURLは {formatGuestUrlExpiry(expiresAt)} まで有効です。
                 </p>
             )}
 

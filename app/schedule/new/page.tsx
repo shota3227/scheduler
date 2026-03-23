@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { formatGuestUrlExpiry } from "@/lib/expiry";
 
 interface Member {
     id: string;
@@ -582,7 +583,7 @@ export default function NewSchedulePage() {
                                 </div>
                                 {guestUrlExpiresAt && (
                                     <p className="mt-3 text-sm text-red-600 font-medium">
-                                        ※このURLは {new Date(guestUrlExpiresAt).toLocaleDateString("ja-JP", { month: "long", day: "numeric" })} {new Date(guestUrlExpiresAt).toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit" })} まで有効です。
+                                        ※このURLは {formatGuestUrlExpiry(guestUrlExpiresAt)} まで有効です。
                                     </p>
                                 )}
                             </div>

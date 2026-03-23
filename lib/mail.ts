@@ -145,7 +145,7 @@ export async function sendCreatorAlertMail(
 }
 
 /**
- * URLの有効期限切れ24時間前警告（社内作成者へ）
+ * URLの有効期限切れ2日前リマインド（社内作成者へ）
 
  */
 export async function sendExpiryWarningMail(

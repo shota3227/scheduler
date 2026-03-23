@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { sendExpiryWarningMail, sendNoSlotsMail } from "@/lib/mail";
+import { sendExpiryWarningMail } from "@/lib/mail";
 import { ScheduleStatus } from "@prisma/client";
 import { getGuestUrl } from "@/lib/token";
-import { addHours, addDays } from "date-fns";
+import { addDays } from "date-fns";
+import { formatGuestUrlExpiry, getJstDayRange } from "@/lib/expiry";
 
 // Vercel Cron: 毎日1回実行（vercel.json で設定）
-// 期限切れチェック + 24時間前警告 + 古いイベントの自動削除
+// 期限切れチェック + 2日前(午前10時)リマインド + 古いイベントの自動削除
 export async function GET(request: NextRequest) {
     // Vercel Cron認証ヘッダーチェック
     const authHeader = request.headers.get("authorization");
@@ -15,27 +16,45 @@ export async function GET(request: NextRequest) {
     }
 
     const now = new Date();
-    const in24h = addHours(now, 24);
     const twoWeeksAgo = addDays(now, -14);
+    const reminderTargetRange = getJstDayRange(now, 2); // JSTで「2日後に期限切れ」の案件
 
-    // 24時間以内に期限切れになるPENDINGの調整を検索
+    // 2日後に期限切れになるPENDINGの調整を検索
     const soonExpiring = await prisma.scheduleRequest.findMany({
         where: {
             status: ScheduleStatus.PENDING,
-            expiresAt: { lte: in24h, gte: now },
+            expiresAt: {
+                gte: reminderTargetRange.start,
+                lte: reminderTargetRange.end,
+            },
         },
         include: {
             creator: { select: { email: true, name: true } },
         },
     });
 
-    for (const schedule of soonExpiring) {
+    const sentWarnings = await prisma.notification.findMany({
+        where: {
+            scheduleId: { in: soonExpiring.map((s) => s.id) },
+            type: "EXPIRED_WARNING",
+            success: true,
+        },
+        select: { scheduleId: true },
+    });
+    const sentWarningIds = new Set(
+        sentWarnings
+            .map((n) => n.scheduleId)
+            .filter((id): id is string => typeof id === "string")
+    );
+    const warningTargets = soonExpiring.filter((s) => !sentWarningIds.has(s.id));
+
+    for (const schedule of warningTargets) {
         await sendExpiryWarningMail(
             schedule.creator.email,
             {
                 title: schedule.title,
                 url: getGuestUrl(schedule.guestToken),
-                expires_at: schedule.expiresAt.toLocaleString("ja-JP"),
+                expires_at: formatGuestUrlExpiry(schedule.expiresAt, { includeYear: true }),
                 creator_name: schedule.creator.name,
             },
             schedule.id
@@ -81,7 +100,7 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json({
-        warningsSent: soonExpiring.length,
+        warningsSent: warningTargets.length,
         expiredUpdated: expired.count,
         deletedConfirmed: deletedConfirmed.count,
         deletedUnconfirmed: deletedUnconfirmed.count,

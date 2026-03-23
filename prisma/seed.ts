@@ -90,7 +90,7 @@ async function main() {
         },
         {
             key: "email_expiry_warning_body",
-            value: `{creator_name} 様\n\n以下の日程調整URLが24時間以内に期限切れになります。\n\n■ 打ち合わせ名：{title}\n■ URLの有効期限：{expires_at}\n■ 日程選択URL：{url}\n\n必要に応じて再度URLを送付するか、直接ご連絡ください。\n\n日程調整システム`,
+            value: `{creator_name} 様\n\n以下の日程調整URLは2日後に期限切れになります。\n（本メールは期限切れ2日前の午前10時リマインドです）\n\n■ 打ち合わせ名：{title}\n■ URLの有効期限：{expires_at}\n■ 日程選択URL：{url}\n\n必要に応じて再度URLを送付するか、直接ご連絡ください。\n\n日程調整システム`,
             label: "期限切れ警告メール本文",
             category: "EMAIL_TEMPLATE",
         },
