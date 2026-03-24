@@ -1,7 +1,8 @@
 "use client";
 
 import Link, { LinkProps } from "next/link";
-import { MouseEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { MouseEvent, ReactNode, useEffect, useRef } from "react";
 
 type Props = LinkProps & {
     children: ReactNode;
@@ -12,7 +13,25 @@ type Props = LinkProps & {
     onClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 };
 
-const CLEAR_CURSOR_DELAY_MS = 1200;
+function hrefToString(href: LinkProps["href"]): string {
+    if (typeof href === "string") return href;
+
+    const path = href.pathname ?? "";
+    const hash = href.hash ? `#${href.hash}` : "";
+    if (!href.query) return `${path}${hash}`;
+
+    const params = new URLSearchParams();
+    Object.entries(href.query).forEach(([key, value]) => {
+        if (value == null) return;
+        if (Array.isArray(value)) {
+            value.forEach((v) => params.append(key, String(v)));
+            return;
+        }
+        params.set(key, String(value));
+    });
+    const query = params.toString();
+    return `${path}${query ? `?${query}` : ""}${hash}`;
+}
 
 export default function PendingLink({
     children,
@@ -20,14 +39,22 @@ export default function PendingLink({
     onClick,
     target,
     rel,
+    href,
     ...props
 }: Props) {
-    const [isPending, setIsPending] = useState(false);
-    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const isNavigatingRef = useRef(false);
+
+    useEffect(() => {
+        if (isNavigatingRef.current) {
+            isNavigatingRef.current = false;
+            document.body.style.cursor = "";
+        }
+    }, [pathname, searchParams]);
 
     useEffect(() => {
         return () => {
-            if (timerRef.current) clearTimeout(timerRef.current);
             document.body.style.cursor = "";
         };
     }, []);
@@ -46,26 +73,27 @@ export default function PendingLink({
             return;
         }
 
-        setIsPending(true);
+        const nextUrl = new URL(hrefToString(href), window.location.href);
+        const currentUrl = new URL(window.location.href);
+        const isSameUrl =
+            nextUrl.pathname === currentUrl.pathname &&
+            nextUrl.search === currentUrl.search &&
+            nextUrl.hash === currentUrl.hash;
+        if (isSameUrl) return;
+
+        isNavigatingRef.current = true;
         document.body.style.cursor = "progress";
-        if (timerRef.current) clearTimeout(timerRef.current);
-        timerRef.current = setTimeout(() => {
-            setIsPending(false);
-            document.body.style.cursor = "";
-            timerRef.current = null;
-        }, CLEAR_CURSOR_DELAY_MS);
     };
 
     return (
         <Link
             {...props}
+            href={href}
             target={target}
             rel={rel}
             onClick={handleClick}
-            aria-busy={isPending || undefined}
             className={[
                 "cursor-pointer transition-all active:scale-[0.99]",
-                isPending ? "opacity-80 cursor-progress" : "",
                 className ?? "",
             ].join(" ").trim()}
         >
