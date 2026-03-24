@@ -1,14 +1,14 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
 import { getStatusLabel, getStatusColor } from "@/lib/utils";
 import { formatDateTime } from "@/lib/utils";
 import { signOut } from "@/auth";
 import CancelButton from "@/app/schedule/[id]/CancelButton";
 import ResolveExternallyButton from "@/app/dashboard/ResolveExternallyButton";
 import { formatGuestUrlExpiry } from "@/lib/expiry";
-import { refreshExpiredScheduleStatuses } from "@/lib/schedule-status";
+import PendingLink from "@/app/dashboard/PendingLink";
+import { Prisma, ScheduleStatus } from "@prisma/client";
 
 export default async function DashboardPage(
     props: { searchParams: Promise<{ filter?: string }> }
@@ -16,41 +16,69 @@ export default async function DashboardPage(
     const session = await auth();
     if (!session?.user) redirect("/login");
 
-    const user = session.user as any;
+    const user = session.user as {
+        id: string;
+        role?: string | null;
+        name?: string | null;
+        email?: string | null;
+    };
     const isAdmin = user.role === "ADMIN";
-
-    await refreshExpiredScheduleStatuses();
 
     const searchParams = await props.searchParams;
     const rawFilter = searchParams?.filter || "all";
     const filter = rawFilter === "pending" || rawFilter === "expired" ? rawFilter : "all";
 
+    const now = new Date();
+    const activeStatuses: ScheduleStatus[] = [ScheduleStatus.PENDING, ScheduleStatus.RESCHEDULE_REQUESTED];
+    const baseWhere: Prisma.ScheduleRequestWhereInput = isAdmin
+        ? { timeSlots: { some: { isActive: true } } }
+        : { creatorId: user.id, timeSlots: { some: { isActive: true } } };
+
     const schedules = await prisma.scheduleRequest.findMany({
-        where: isAdmin
-            ? { timeSlots: { some: { isActive: true } } }
-            : { creatorId: user.id, timeSlots: { some: { isActive: true } } },
-        include: {
+        where: {
+            ...baseWhere,
+            status: { not: ScheduleStatus.RESOLVED_EXTERNALLY },
+        },
+        select: {
+            id: true,
+            title: true,
+            status: true,
+            creatorId: true,
+            expiresAt: true,
             creator: { select: { name: true } },
-            participants: { include: { user: { select: { name: true } } } },
-            timeSlots: { where: { isActive: true } },
-            selection: { include: { slot: true } },
+            participants: { select: { user: { select: { name: true } } } },
+            selection: {
+                select: {
+                    slot: {
+                        select: {
+                            startTime: true,
+                            endTime: true,
+                        },
+                    },
+                },
+            },
         },
         orderBy: { createdAt: "desc" },
         take: 10,
     });
 
-    const activeStatuses = new Set(["PENDING", "RESCHEDULE_REQUESTED"]);
-    const visibleSchedules = schedules.filter((s) => s.status !== "RESOLVED_EXTERNALLY");
-    const pendingCount = visibleSchedules.filter((s) => activeStatuses.has(s.status)).length;
-    const confirmedCount = visibleSchedules.filter((s) => s.status === "CONFIRMED").length;
-
-    // フィルタリング処理
-    const displaySchedules =
+    const displaySchedules = schedules.map((schedule) => {
+        const isExpired = activeStatuses.includes(schedule.status) && schedule.expiresAt < now;
+        return {
+            ...schedule,
+            displayStatus: isExpired ? ScheduleStatus.EXPIRED : schedule.status,
+        };
+    });
+    const isActiveStatus = (status: ScheduleStatus) => activeStatuses.includes(status);
+    const pendingCount = displaySchedules.filter((s) => isActiveStatus(s.displayStatus)).length;
+    const confirmedCount = displaySchedules.filter((s) => s.displayStatus === ScheduleStatus.CONFIRMED).length;
+    const totalCount = displaySchedules.length;
+    const filteredSchedules =
         filter === "pending"
-            ? visibleSchedules.filter((s) => activeStatuses.has(s.status))
+            ? displaySchedules.filter((s) => isActiveStatus(s.displayStatus))
             : filter === "expired"
-                ? visibleSchedules.filter((s) => s.status === "EXPIRED")
-                : visibleSchedules;
+                ? displaySchedules.filter((s) => s.displayStatus === ScheduleStatus.EXPIRED)
+                : displaySchedules;
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -67,9 +95,9 @@ export default async function DashboardPage(
                         <span className="text-sm text-gray-500 border-l border-gray-300 pl-3 ml-1">{user.name || user.email}</span>
                     </div>
                     <div className="flex items-center gap-4">
-                        <Link href="/dashboard" className="text-sm text-blue-600 font-medium">ダッシュボード</Link>
-                        <Link href="/history" className="text-sm text-gray-600 hover:text-gray-900">履歴</Link>
-                        {isAdmin && <Link href="/admin" className="text-sm text-gray-600 hover:text-gray-900">管理者設定</Link>}
+                        <PendingLink href="/dashboard" className="text-sm text-blue-600 font-medium">ダッシュボード</PendingLink>
+                        <PendingLink href="/history" className="text-sm text-gray-600 hover:text-gray-900">履歴</PendingLink>
+                        {isAdmin && <PendingLink href="/admin" className="text-sm text-gray-600 hover:text-gray-900">管理者設定</PendingLink>}
                         <form action={async () => { "use server"; await signOut({ redirectTo: "/login" }); }}>
                             <button type="submit" className="text-sm text-gray-500 hover:text-gray-700 cursor-pointer">ログアウト</button>
                         </form>
@@ -90,7 +118,7 @@ export default async function DashboardPage(
                     </div>
                     <div className="bg-white rounded-xl border border-gray-200 p-6">
                         <p className="text-sm text-gray-500 mb-1">合計</p>
-                        <p className="text-3xl font-bold text-gray-700">{visibleSchedules.length}</p>
+                        <p className="text-3xl font-bold text-gray-700">{totalCount}</p>
                     </div>
                 </div>
 
@@ -99,27 +127,27 @@ export default async function DashboardPage(
                     <div className="flex items-center gap-4">
                         <h2 className="text-lg font-bold text-gray-900">最近の調整</h2>
                         <div className="flex bg-gray-100 rounded-lg p-1">
-                            <Link
+                            <PendingLink
                                 href="/dashboard"
                                 className={`px-3 py-1.5 text-sm rounded-md transition-colors ${filter === "all" ? "bg-white shadow-sm font-medium text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
                             >
                                 すべて
-                            </Link>
-                            <Link
+                            </PendingLink>
+                            <PendingLink
                                 href="/dashboard?filter=pending"
                                 className={`px-3 py-1.5 text-sm rounded-md transition-colors ${filter === "pending" ? "bg-white shadow-sm font-medium text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
                             >
                                 調整中のみ
-                            </Link>
-                            <Link
+                            </PendingLink>
+                            <PendingLink
                                 href="/dashboard?filter=expired"
                                 className={`px-3 py-1.5 text-sm rounded-md transition-colors ${filter === "expired" ? "bg-white shadow-sm font-medium text-gray-900" : "text-gray-500 hover:text-gray-700"}`}
                             >
                                 期限切れのみ
-                            </Link>
+                            </PendingLink>
                         </div>
                     </div>
-                    <Link
+                    <PendingLink
                         href="/schedule/new"
                         id="create-schedule-btn"
                         className="inline-flex items-center gap-2 bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors"
@@ -128,32 +156,33 @@ export default async function DashboardPage(
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                         </svg>
                         新規日程調整
-                    </Link>
+                    </PendingLink>
                 </div>
 
                 {/* 調整一覧 */}
-                {displaySchedules.length === 0 ? (
+                {filteredSchedules.length === 0 ? (
                     <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
                         <p className="text-gray-500">条件に一致する日程調整がありません</p>
                         {filter === "pending" || filter === "expired" ? (
-                            <Link href="/dashboard" className="mt-3 inline-block text-blue-600 text-sm hover:underline">
+                            <PendingLink href="/dashboard" className="mt-3 inline-block text-blue-600 text-sm hover:underline">
                                 すべての調整を表示する →
-                            </Link>
+                            </PendingLink>
                         ) : (
-                            <Link href="/schedule/new" className="mt-3 inline-block text-blue-600 text-sm hover:underline">
+                            <PendingLink href="/schedule/new" className="mt-3 inline-block text-blue-600 text-sm hover:underline">
                                 最初の日程調整を作成する →
-                            </Link>
+                            </PendingLink>
                         )}
                     </div>
                 ) : (
                     <div className="space-y-3">
-                        {displaySchedules.map((schedule) => {
+                        {filteredSchedules.map((schedule) => {
+                            const status = schedule.displayStatus;
                             const canManage = isAdmin || schedule.creatorId === user.id;
                             const cancelAction = async () => {
                                 "use server";
                                 await prisma.scheduleRequest.update({
                                     where: { id: schedule.id },
-                                    data: { status: "CANCELLED" },
+                                    data: { status: ScheduleStatus.CANCELLED },
                                 });
                                 redirect("/dashboard");
                             };
@@ -161,7 +190,7 @@ export default async function DashboardPage(
                                 "use server";
                                 await prisma.scheduleRequest.update({
                                     where: { id: schedule.id },
-                                    data: { status: "RESOLVED_EXTERNALLY" },
+                                    data: { status: ScheduleStatus.RESOLVED_EXTERNALLY },
                                 });
                                 redirect(filter === "expired" ? "/dashboard?filter=expired" : "/dashboard");
                             };
@@ -171,12 +200,12 @@ export default async function DashboardPage(
                                     className="bg-white rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all overflow-hidden"
                                 >
                                     {/* クリックで詳細へ */}
-                                    <Link href={`/schedule/${schedule.id}`} className="block p-5">
+                                    <PendingLink href={`/schedule/${schedule.id}`} className="block p-5">
                                         <div className="flex items-start justify-between">
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getStatusColor(schedule.status)}`}>
-                                                        {getStatusLabel(schedule.status)}
+                                                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getStatusColor(status)}`}>
+                                                        {getStatusLabel(status)}
                                                     </span>
                                                     <h3 className="font-medium text-gray-900">{schedule.title}</h3>
                                                 </div>
@@ -196,23 +225,23 @@ export default async function DashboardPage(
                                                 </p>
                                             </div>
                                         </div>
-                                    </Link>
+                                    </PendingLink>
 
                                     {/* アクションバー */}
                                     {canManage && (
                                         <div className="border-t border-gray-100 px-5 py-2 flex items-center justify-end gap-4 bg-gray-50">
-                                            {activeStatuses.has(schedule.status) && (
-                                                <Link
+                                            {isActiveStatus(status) && (
+                                                <PendingLink
                                                     href={`/schedule/${schedule.id}/edit`}
                                                     className="text-xs text-blue-600 hover:underline font-medium"
                                                 >
                                                     編集
-                                                </Link>
+                                                </PendingLink>
                                             )}
-                                            {activeStatuses.has(schedule.status) && (
+                                            {isActiveStatus(status) && (
                                                 <CancelButton action={cancelAction} />
                                             )}
-                                            {schedule.status === "EXPIRED" && (
+                                            {status === ScheduleStatus.EXPIRED && (
                                                 <ResolveExternallyButton action={resolveExternallyAction} />
                                             )}
                                         </div>
@@ -224,7 +253,7 @@ export default async function DashboardPage(
                 )}
 
                 <div className="mt-4 text-right">
-                    <Link href="/history" className="text-sm text-blue-600 hover:underline">すべての履歴を見る →</Link>
+                    <PendingLink href="/history" className="text-sm text-blue-600 hover:underline">すべての履歴を見る →</PendingLink>
                 </div>
             </main>
         </div>
