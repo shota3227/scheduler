@@ -2,7 +2,7 @@
 
 import Link, { LinkProps } from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { MouseEvent, ReactNode, useEffect, useRef } from "react";
+import { MouseEvent, ReactNode, Suspense, useEffect, useRef } from "react";
 
 type Props = LinkProps & {
     children: ReactNode;
@@ -45,7 +45,33 @@ function hrefToString(href: LinkProps["href"]): string {
     return `${path}${query ? `?${query}` : ""}${hash}`;
 }
 
-export default function PendingLink({
+function LinkElement({
+    children,
+    className,
+    target,
+    rel,
+    href,
+    onClick,
+    ...props
+}: Props) {
+    return (
+        <Link
+            {...props}
+            href={href}
+            target={target}
+            rel={rel}
+            onClick={onClick}
+            className={[
+                "cursor-pointer transition-all active:scale-[0.99]",
+                className ?? "",
+            ].join(" ").trim()}
+        >
+            {children}
+        </Link>
+    );
+}
+
+function PendingLinkInner({
     children,
     className,
     onClick,
@@ -97,20 +123,13 @@ export default function PendingLink({
         startRoutePendingCursor();
     };
 
-    return (
-        <Link
-            {...props}
-            href={href}
-            target={target}
-            rel={rel}
-            onClick={handleClick}
-            className={[
-                "cursor-pointer transition-all active:scale-[0.99]",
-                className ?? "",
-            ].join(" ").trim()}
-        >
-            {children}
-        </Link>
-    );
+    return <LinkElement {...props} href={href} target={target} rel={rel} onClick={handleClick} className={className}>{children}</LinkElement>;
 }
 
+export default function PendingLink(props: Props) {
+    return (
+        <Suspense fallback={<LinkElement {...props} />}>
+            <PendingLinkInner {...props} />
+        </Suspense>
+    );
+}
