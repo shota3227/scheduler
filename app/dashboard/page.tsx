@@ -7,7 +7,7 @@ import { signOut } from "@/auth";
 import CancelButton from "@/app/schedule/[id]/CancelButton";
 import ResolveExternallyButton from "@/app/dashboard/ResolveExternallyButton";
 import { formatGuestUrlExpiry } from "@/lib/expiry";
-import PendingLink from "@/app/dashboard/PendingLink";
+import PendingLink from "@/components/navigation/PendingLink";
 import { Prisma, ScheduleStatus } from "@prisma/client";
 
 export default async function DashboardPage(

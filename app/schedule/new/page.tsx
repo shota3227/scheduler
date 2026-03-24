@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { formatGuestUrlExpiry } from "@/lib/expiry";
 import { formatSlotDateTime, getJstDateKey, getJstMinutes } from "@/lib/utils";
+import PendingLink, { startRoutePendingCursor } from "@/components/navigation/PendingLink";
 
 interface Member {
     id: string;
@@ -287,7 +288,7 @@ export default function NewSchedulePage() {
             {/* ナビ */}
             <nav className="sticky top-0 z-50 bg-white border-b border-gray-200 px-6 py-4">
                 <div className="max-w-4xl mx-auto flex items-center gap-3">
-                    <a href="/dashboard" className="text-blue-600 hover:text-blue-800 text-sm">← ダッシュボードへ</a>
+                    <PendingLink href="/dashboard" className="text-blue-600 hover:text-blue-800 text-sm">← ダッシュボードへ</PendingLink>
                     <span className="text-gray-300">/</span>
                     <span className="font-medium text-gray-900">新規日程調整</span>
                 </div>
@@ -596,7 +597,10 @@ export default function NewSchedulePage() {
                             {error && <p className="text-red-600 text-sm">{error}</p>}
                             <button
                                 id="back-to-dashboard-btn"
-                                onClick={() => router.push("/dashboard")}
+                                onClick={() => {
+                                    startRoutePendingCursor();
+                                    router.push("/dashboard");
+                                }}
                                 className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm font-medium hover:bg-gray-50"
                             >
                                 ダッシュボードに戻る

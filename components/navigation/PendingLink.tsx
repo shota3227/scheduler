@@ -15,6 +15,16 @@ type Props = LinkProps & {
 
 const ROUTE_PENDING_CLASS = "route-pending";
 
+export function startRoutePendingCursor() {
+    document.documentElement.classList.add(ROUTE_PENDING_CLASS);
+    document.body.style.cursor = "progress";
+}
+
+function clearRoutePendingCursor() {
+    document.documentElement.classList.remove(ROUTE_PENDING_CLASS);
+    document.body.style.cursor = "";
+}
+
 function hrefToString(href: LinkProps["href"]): string {
     if (typeof href === "string") return href;
 
@@ -51,15 +61,13 @@ export default function PendingLink({
     useEffect(() => {
         if (isNavigatingRef.current) {
             isNavigatingRef.current = false;
-            document.documentElement.classList.remove(ROUTE_PENDING_CLASS);
-            document.body.style.cursor = "";
+            clearRoutePendingCursor();
         }
     }, [pathname, searchParams]);
 
     useEffect(() => {
         return () => {
-            document.documentElement.classList.remove(ROUTE_PENDING_CLASS);
-            document.body.style.cursor = "";
+            clearRoutePendingCursor();
         };
     }, []);
 
@@ -86,8 +94,7 @@ export default function PendingLink({
         if (isSameUrl) return;
 
         isNavigatingRef.current = true;
-        document.documentElement.classList.add(ROUTE_PENDING_CLASS);
-        document.body.style.cursor = "progress";
+        startRoutePendingCursor();
     };
 
     return (
@@ -106,3 +113,4 @@ export default function PendingLink({
         </Link>
     );
 }
+

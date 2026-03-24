@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
+import PendingLink from "@/components/navigation/PendingLink";
 import { getStatusLabel, getStatusColor, formatDateTime } from "@/lib/utils";
 import { signOut } from "@/auth";
 import { CancelButton } from "./CancelButton";
@@ -35,7 +35,7 @@ export default async function HistoryPage() {
             <nav className="sticky top-0 z-50 bg-white border-b border-gray-200 px-6 py-4">
                 <div className="max-w-6xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Link href="/dashboard" className="text-sm text-blue-600">← ダッシュボード</Link>
+                        <PendingLink href="/dashboard" className="text-sm text-blue-600">← ダッシュボード</PendingLink>
                         <span className="font-bold text-gray-900">調整履歴</span>
                     </div>
                     <form action={async () => { "use server"; await signOut({ redirectTo: "/login" }); }}>
@@ -49,9 +49,9 @@ export default async function HistoryPage() {
                     <h1 className="text-xl font-bold text-gray-900">
                         {isAdmin ? "全メンバーの調整履歴" : "自分の調整履歴"}
                     </h1>
-                    <Link href="/schedule/new" className="inline-flex items-center gap-2 bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors">
+                    <PendingLink href="/schedule/new" className="inline-flex items-center gap-2 bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 transition-colors">
                         + 新規調整
-                    </Link>
+                    </PendingLink>
                 </div>
 
                 {schedules.length === 0 ? (
@@ -75,9 +75,9 @@ export default async function HistoryPage() {
                                 {schedules.map((s) => (
                                     <tr key={s.id} className="hover:bg-gray-50">
                                         <td className="px-5 py-4">
-                                            <Link href={`/schedule/${s.id}`} className="font-medium text-blue-600 hover:underline">
+                                            <PendingLink href={`/schedule/${s.id}`} className="font-medium text-blue-600 hover:underline">
                                                 {s.title}
-                                            </Link>
+                                            </PendingLink>
                                             <p className="text-xs text-gray-400 mt-0.5">
                                                 作成: {new Date(s.createdAt).toLocaleDateString("ja-JP")}
                                             </p>

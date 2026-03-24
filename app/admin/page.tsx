@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import PendingLink from "@/components/navigation/PendingLink";
 
 interface Config {
     id: string;
@@ -275,7 +276,7 @@ export default function AdminPage() {
             <nav className="sticky top-0 z-50 bg-white border-b border-gray-200 px-6 py-4">
                 <div className="max-w-5xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <a href="/dashboard" className="text-sm text-blue-600">← ダッシュボード</a>
+                        <PendingLink href="/dashboard" className="text-sm text-blue-600">← ダッシュボード</PendingLink>
                         <span className="font-bold text-gray-900">管理者設定</span>
                     </div>
                 </div>

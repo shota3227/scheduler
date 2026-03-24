@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import Link from "next/link";
+import PendingLink from "@/components/navigation/PendingLink";
 import { signOut } from "@/auth";
 import { getStatusLabel, getStatusColor, formatDateTime } from "@/lib/utils";
 import { getGuestUrl } from "@/lib/token";
@@ -59,9 +59,9 @@ export default async function ScheduleDetailPage({
             <nav className="sticky top-0 z-50 bg-white border-b border-gray-200 px-6 py-4">
                 <div className="max-w-3xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                        <Link href="/dashboard" className="text-sm text-blue-600 hover:underline">
+                        <PendingLink href="/dashboard" className="text-sm text-blue-600 hover:underline">
                             ← ダッシュボード
-                        </Link>
+                        </PendingLink>
                         <span className="text-gray-300">|</span>
                         <span className="font-bold text-gray-900">調整詳細</span>
                     </div>
@@ -172,12 +172,12 @@ export default async function ScheduleDetailPage({
                 {/* アクションボタン */}
                 {canManage && (activeStatuses.has(schedule.status) || schedule.status === "CONFIRMED") && (
                     <div className="flex items-center justify-end gap-4">
-                        <Link
+                        <PendingLink
                             href={`/schedule/${id}/edit`}
                             className="text-sm text-blue-600 hover:underline font-medium"
                         >
                             編集
-                        </Link>
+                        </PendingLink>
                         <CancelButton action={cancelAction} />
                     </div>
                 )}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
+import PendingLink from "@/components/navigation/PendingLink";
 import { formatSlotDateTime, getJstDateKey, getJstMinutes } from "@/lib/utils";
 
 interface SlotItem {
@@ -337,9 +337,9 @@ export default function ScheduleEditPage() {
             {/* ナビ */}
             <nav className="sticky top-0 z-50 bg-white border-b border-gray-200 px-6 py-4">
                 <div className="max-w-3xl mx-auto flex items-center gap-3">
-                    <Link href={`/schedule/${id}`} className="text-sm text-blue-600 hover:underline">
+                    <PendingLink href={`/schedule/${id}`} className="text-sm text-blue-600 hover:underline">
                         ← 詳細に戻る
-                    </Link>
+                    </PendingLink>
                     <span className="text-gray-300">|</span>
                     <span className="font-bold text-gray-900">調整を編集</span>
                 </div>
