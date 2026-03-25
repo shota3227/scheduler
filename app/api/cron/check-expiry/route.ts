@@ -18,6 +18,8 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const twoWeeksAgo = addDays(now, -14);
     const reminderTargetRange = getJstDayRange(now, 2); // JSTで「2日後に期限切れ」の案件
+    // 24:00期限（=翌日00:00 JST）も対象に含めるため、終端を翌日の開始時刻まで拡張
+    reminderTargetRange.end = getJstDayRange(now, 3).start;
 
     // 2日後に期限切れになる「調整進行中(PENDING/RESCHEDULE_REQUESTED)」を検索
     const soonExpiring = await prisma.scheduleRequest.findMany({
